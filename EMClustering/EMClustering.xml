@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Tractography</category>
+  <title>EM Clustering</title>
+  <description>
+  
+  </description>
+  <version>1.0</version>
+  <documentation-url></documentation-url>
+  <license>GE</license>
+  <contributor>Mahnaz Maddah, Ph. D.</contributor>
+
+  <parameters>
+    <label>IO</label>
+    <description>Parameters specifying data input and output</description>
+
+    <geometry type="fiberbundle">
+      <name>trajectoriesFilename</name>
+      <label>Trajectories</label>
+      <channel>input</channel>
+      <index>0</index>
+      <description>Input trajectories</description>
+    </geometry>
+
+    <geometry type="fiberbundle">
+      <name>centersFilename</name>
+      <label>Centers</label>
+      <channel>input</channel>
+      <index>1</index>
+      <description>Initial cluster centerlines</description>
+    </geometry>
+
+    <image>
+      <name>imageFilename</name>
+      <label>Image Volume</label>
+      <channel>input</channel>
+      <index>2</index>
+      <description>Sets the space for clustering</description>
+    </image>
+
+    <geometry  type="fiberbundle">
+      <name>outputClustersFilename</name>
+      <label>Output Clusters</label>
+      <channel>output</channel>
+      <index>3</index>
+      <description>Output of clustering which is a set of labeled trajectories</description>
+    </geometry>
+
+  </parameters>
+
+  <parameters>
+    <label>Clustering parameters</label>
+    <description>Parameters to control clustering method</description>
+
+    <integer>
+      <name>nIterations</name>
+      <label>Iterations</label>
+      <!-- <channel>input</channel> -->
+      <default>2</default>
+      <constraints>
+        <minimum>1</minimum>
+        <maximum>5</maximum>
+        <step>1</step>
+      </constraints>
+      <flag>i</flag>
+      <longflag>n_iter</longflag>
+      <description>Number of EM iterations</description>
+    </integer>
+
+    <float>
+      <name>MinLikelihoodThr</name>
+      <label>Compactness of fiber bundles</label>
+      <!-- <channel>input</channel> -->
+      <default>3</default>
+      <constraints>
+        <minimum>1</minimum>
+        <maximum>10</maximum>
+        <step>1</step>
+      </constraints>
+      <flag>l</flag>
+      <longflag>min_like</longflag>
+      <description> This parameter controls the homogeneity of trajectories in a cluster. It defines the minimum likelihood threshold on cluster probability membership. </description>
+    </float>
+    
+    <float>
+      <name>MinPost</name>
+      <label>Minimum Posterior</label>
+      <!-- <channel>input</channel> -->
+      <default>0.1</default>
+      <constraints>
+        <minimum>0.01</minimum>
+        <maximum>0.9</maximum>
+        <step>0.01</step>
+      </constraints>
+      <flag>p</flag>
+      <longflag>min_post</longflag>
+      <description>Minimum posterior specifies which trajectories contribute to generating new centers</description>
+    </float>
+
+    <float>
+      <name>MaxDist</name>
+      <label>Maximum Distance</label>
+      <!-- <channel>input</channel> -->
+      <default>20</default>
+      <constraints>
+        <minimum>5</minimum>
+        <maximum>50</maximum>
+        <step>5</step>
+      </constraints>
+      <flag>d</flag>
+      <longflag>max_dist</longflag>
+      <description>Max distance (in mm) specifies an upper threshold on the distance of points which can contribute to generating new centers</description>
+    </float>
+   
+    <boolean>
+      <name>havePrior</name>
+      <label>Anotomical Information</label>
+      <description>Should an atlas be used in clustering</description>
+      <longflag>use_atlas</longflag>
+      <default>false</default>
+    </boolean>
+   
+
+  </parameters>
+    
+</executable>
