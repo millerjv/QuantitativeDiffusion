@@ -1049,7 +1049,8 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     }   
     else
     {
-      std::cout<<"Not valid boundaries"<< std::endl;
+      std::cout<<"Invalid boundaries"<< std::endl;
+      return space;
     }
     return subSpace;
 
@@ -1112,7 +1113,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
     ///// START /////
 
-    bool debug =1;
+    bool debug =0;
     for (unsigned int i=0; i<nIterations; ++i)
     {
       std::cout<< "Iteration  " << i+1 << std::endl;
@@ -1131,7 +1132,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
       //EM Block Begins
       Likelihood = ComputeLikelihood(DissimilarityMatrix, alpha, beta);
       MeshType::Pointer RefinedTrajectories;
-	  MinLikelihoodThr = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
+	    MinLikelihoodThr = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
       MyMinLikelihoodThr = AdjustThreshold(MinLikelihoodThr, alpha, beta);
 
       if (debug)
