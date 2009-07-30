@@ -516,7 +516,7 @@ void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2D
 
   Array2DType A,B;
   A = element_product(Posterior, DissimilarityMatrix);
-  B = element_product(Posterior, DissimilarityMatrix.apply(log));
+  B = element_product(Posterior, DissimilarityMatrix.apply(logf));
   unsigned int NumberOfClusters = DissimilarityMatrix.cols();
   ArrayType X, N;
   X.SetSize(NumberOfClusters);
