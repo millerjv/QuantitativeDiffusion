@@ -990,7 +990,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   }
 
 
-  ImageType::Pointer getSubSpace(ImageType* space, const MeshType* Trajectories)
+  ImageType::Pointer getSubSpace(const MeshType* Trajectories, std::vector<double> spacing)
   {
     ImageType::Pointer subSpace = ImageType::New();
     MeshType::BoundingBoxType const *dataBoundingBox = Trajectories->GetBoundingBox();
@@ -1005,9 +1005,6 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     p2[0] = dataBounds[1];
     p2[1] = dataBounds[3];
     p2[2] = dataBounds[5];
-
-    ImageType::SpacingType spacing;
-    spacing = space->GetSpacing();
 
     ImageType::IndexType start;
     start[0] = 0; 
@@ -1024,10 +1021,17 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
     subSpace->SetRegions(desiredRegion);
     subSpace->Allocate();
+    
+    ImageType::SpacingType imSpacing;
+    imSpacing[0] = spacing[0];
+    imSpacing[1] = spacing[1];
+    imSpacing[2] = spacing[2];
 
-    subSpace->SetSpacing(spacing);
+
+    subSpace->SetSpacing(imSpacing);
     subSpace->SetOrigin(p1);
 
+    //just for debug
     ImageType::IndexType ind1,ind2;
     bool val1 = subSpace->TransformPhysicalPointToIndex(p1,ind1);
     bool val2 = subSpace->TransformPhysicalPointToIndex(p2,ind2);
@@ -1050,13 +1054,6 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   {
     PARSE_ARGS;
 
-    typedef itk::ImageFileReader< ImageType > ReaderType;
-    ReaderType::Pointer reader = ReaderType::New();
-    reader->SetFileName(imageFilename.c_str());
-    reader->Update();
-    ImageType::Pointer space = reader->GetOutput();
-
-
     MeshType::Pointer    Trajectories, Centers;
     MeshType::Pointer    oldCenters = MeshType::New();
     Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
@@ -1075,7 +1072,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1); 
     beta.SetSize(Centers->GetNumberOfCells()); beta.fill(10);
     Prior.SetSize(Trajectories->GetNumberOfCells(),Centers->GetNumberOfCells());
-    havePrior = 0;
+    bool havePrior = 0;
     if (havePrior)
     {
       fillPriorInfo(Prior, Trajectories);
@@ -1088,8 +1085,12 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
     // set the space to the limits of input trajectories
     ImageType::Pointer subSpace;
-    subSpace = getSubSpace(space,Trajectories);
-//    subSpace = space;
+    /*ImageType::SpacingType imageSpacing;
+    imageSpacing[0] = spacing[0];
+    imageSpacing[1] = spacing[1];
+    imageSpacing[2] = spacing[2];*/
+
+    subSpace = getSubSpace(Trajectories, spacing);
 
     ///// START /////
 
