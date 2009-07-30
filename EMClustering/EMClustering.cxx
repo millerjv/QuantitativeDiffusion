@@ -20,7 +20,6 @@
 #include <itkArray2D.h>
 #include <itkBoundingBox.h>
 #include <itkExtractImageFilter.h>
-#include "itkRegionOfInterestImageFilter.h"
 #include "vnl/vnl_gamma.h"
 #include "EMClusteringCLP.h"
 
@@ -65,11 +64,9 @@ typedef MeshType::CellType                                 CellType;
 typedef itk::PolylineCell< CellType >                      PolylineType;
 typedef CellType::CellAutoPointer                          CellAutoPointer;
 typedef itk::DiffusionTensor3D< CoordinateType >           TensorPixelType;
-typedef itk::Image< TensorPixelType, PointDimension >      DTIImageType;
 typedef TensorPixelType::RealValueType                     RealValueType;
 typedef TensorPixelType::EigenValuesArrayType              EigenValuesArrayType;
 typedef itk::OrientedImage<CoordinateType,PointDimension > ImageType;
-typedef itk::OrientedImage< RealValueType, PointDimension >FAImageType;
 typedef itk::Array2D<CoordinateType>                       CurveType;  
 typedef itk::Array<CoordinateType>                         CurvePointType;
 
@@ -993,9 +990,9 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   }
 
 
-  FAImageType::Pointer getSubSpace(FAImageType* space, const MeshType* Trajectories)
+  ImageType::Pointer getSubSpace(ImageType* space, const MeshType* Trajectories)
   {
-    FAImageType::Pointer subSpace;
+    ImageType::Pointer subSpace = ImageType::New();
     MeshType::BoundingBoxType const *dataBoundingBox = Trajectories->GetBoundingBox();
     dataBoundingBox->ComputeBoundingBox();
     MeshType::BoundingBoxType::BoundsArrayType dataBounds = dataBoundingBox->GetBounds();
@@ -1009,52 +1006,34 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     p2[1] = dataBounds[3];
     p2[2] = dataBounds[5];
 
-    FAImageType::IndexType ind1,ind2;
-    bool val1 = space->TransformPhysicalPointToIndex(p1,ind1);
-    bool val2 = space->TransformPhysicalPointToIndex(p2,ind2);
-    if (val1 && val2)
-    {
-      std::cout << "-- Space Limits: " << p1 << " --> " << p2 << std::endl;
+    ImageType::SpacingType spacing;
+    spacing = space->GetSpacing();
 
-      FAImageType::IndexType start;
-      start[0] = ind1[0]<ind2[0]?ind1[0]:ind2[0];
-      start[1] = ind1[1]<ind2[1]?ind1[1]:ind2[1];
-      start[2] = ind1[2]<ind2[2]?ind1[2]:ind2[2];
-      FAImageType::SizeType size;
-      size[0] = ind1[0]<ind2[0]?ind2[0]-ind1[0]+1:ind1[0]-ind2[0]+1;
-      size[1] = ind1[1]<ind2[1]?ind2[1]-ind1[1]+1:ind1[1]-ind2[1]+1;
-      size[2] = ind1[2]<ind2[2]?ind2[2]-ind1[2]+1:ind1[2]-ind2[2]+1;
+    ImageType::IndexType start;
+    start[0] = 0; 
+    start[1] = 0; 
+    start[2] = 0; 
+    ImageType::SizeType size;
+    size[0] = ceil((p2[0]-p1[0]+5)/spacing[0]);   
+    size[1] = ceil((p2[1]-p1[1]+5)/spacing[1]);   
+    size[2] = ceil((p2[2]-p1[2]+5)/spacing[2]);   
 
-      FAImageType::RegionType desiredRegion;
-      desiredRegion.SetSize(  size  );
-      desiredRegion.SetIndex( start );
+    ImageType::RegionType desiredRegion;
+    desiredRegion.SetSize(  size  );
+    desiredRegion.SetIndex( start );
 
-      typedef itk::RegionOfInterestImageFilter< FAImageType, FAImageType > ROIFilterType;
-      ROIFilterType::Pointer ROIfilter = ROIFilterType::New();
-      ROIfilter->SetInput(space);
-      ROIfilter->SetRegionOfInterest( desiredRegion );
-      subSpace = ROIfilter->GetOutput();
-      ROIfilter->Update();
-      /*
-      for (long int h=0; h<Trajectories->GetNumberOfPoints(); h++)
-      {
-      Trajectories->GetPoint(h, &p);
-      if (subSpace->TransformPhysicalPointToIndex(p, ind))
-      {}
-      else
-      {
-      std::cout << h << " -- " << p << std::endl;
-      }
-      }*/
-    }   
-    else
-    {
-      std::cout<<"Invalid boundaries"<< std::endl;
-      return space;
-    }
+    subSpace->SetRegions(desiredRegion);
+    subSpace->Allocate();
+
+    subSpace->SetSpacing(spacing);
+    subSpace->SetOrigin(p1);
+
+    ImageType::IndexType ind1,ind2;
+    bool val1 = subSpace->TransformPhysicalPointToIndex(p1,ind1);
+    bool val2 = subSpace->TransformPhysicalPointToIndex(p2,ind2);
+
     return subSpace;
-
-  }
+}
 
   void  fillPriorInfo(Array2DType &Prior, MeshType* Trajectories)
   {
@@ -1071,11 +1050,11 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   {
     PARSE_ARGS;
 
-    typedef itk::ImageFileReader< FAImageType > ReaderType;
+    typedef itk::ImageFileReader< ImageType > ReaderType;
     ReaderType::Pointer reader = ReaderType::New();
     reader->SetFileName(imageFilename.c_str());
     reader->Update();
-    FAImageType::Pointer space = reader->GetOutput();
+    ImageType::Pointer space = reader->GetOutput();
 
 
     MeshType::Pointer    Trajectories, Centers;
@@ -1108,8 +1087,9 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     }
 
     // set the space to the limits of input trajectories
-    FAImageType::Pointer subSpace;
+    ImageType::Pointer subSpace;
     subSpace = getSubSpace(space,Trajectories);
+//    subSpace = space;
 
     ///// START /////
 
