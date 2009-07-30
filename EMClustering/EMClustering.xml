@@ -3,7 +3,7 @@
   <category>Tractography</category>
   <title>EM Clustering</title>
   <description>
-  
+
   </description>
   <version>1.0</version>
   <documentation-url></documentation-url>
@@ -30,19 +30,11 @@
       <description>Initial cluster centerlines</description>
     </geometry>
 
-    <image>
-      <name>imageFilename</name>
-      <label>Image Volume</label>
-      <channel>input</channel>
-      <index>2</index>
-      <description>Sets the space for clustering</description>
-    </image>
-
     <geometry  type="fiberbundle">
       <name>outputClustersFilename</name>
       <label>Output Clusters</label>
       <channel>output</channel>
-      <index>3</index>
+      <index>2</index>
       <description>Output of clustering which is a set of labeled trajectories</description>
     </geometry>
 
@@ -70,7 +62,6 @@
     <float>
       <name>MinLikelihoodThr</name>
       <label>Compactness of fiber bundles</label>
-      <!-- <channel>input</channel> -->
       <default>5</default>
       <constraints>
         <minimum>1</minimum>
@@ -81,11 +72,32 @@
       <longflag>min_like</longflag>
       <description> This parameter controls the homogeneity of trajectories in a cluster. It defines the minimum likelihood threshold on cluster probability membership. </description>
     </float>
-    
+    <!--<boolean>
+      <name>havePrior</name>
+      <label>Anotomical Information</label>
+      <description>Should an atlas be used in clustering</description>
+      <longflag>use_atlas</longflag>
+      <default>false</default>
+    </boolean> -->
+
+  </parameters>
+
+  <parameters advanced ="true">
+    <label>Advanced parameters</label>
+    <description>Advanced parameters to control clustering method</description>
+
+    <double-vector>
+      <name>spacing</name>
+      <label>Space resolution</label>
+      <flag>s</flag>
+      <longflag>res</longflag>
+      <default>1.5,1.5,1.5</default>
+      <description>Space resolution for Distance Map calculation</description>
+    </double-vector>
+
     <float>
       <name>MinPost</name>
       <label>Minimum Posterior</label>
-      <!-- <channel>input</channel> -->
       <default>0.1</default>
       <constraints>
         <minimum>0.01</minimum>
@@ -100,7 +112,6 @@
     <float>
       <name>MaxDist</name>
       <label>Maximum Distance</label>
-      <!-- <channel>input</channel> -->
       <default>20</default>
       <constraints>
         <minimum>5</minimum>
@@ -111,16 +122,6 @@
       <longflag>max_dist</longflag>
       <description>Max distance (in mm) specifies an upper threshold on the distance of points which can contribute to generating new centers</description>
     </float>
-   
-    <boolean>
-      <name>havePrior</name>
-      <label>Anotomical Information</label>
-      <description>Should an atlas be used in clustering</description>
-      <longflag>use_atlas</longflag>
-      <default>false</default>
-    </boolean>
-   
-
   </parameters>
-    
 </executable>
+
