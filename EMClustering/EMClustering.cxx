@@ -188,12 +188,12 @@ void CopyVtkPolyData2ItkMesh(vtkPolyData* polydata, MeshType* mesh)
   vtkIdType npts;
   vtkIdType *pts;
   polylines->InitTraversal();
-  for (unsigned int j=0; j < polydata->GetNumberOfLines(); ++j)
+  for (int j=0; j < polydata->GetNumberOfLines(); ++j)
   {
     acell.TakeOwnership( new PolylineType );
     polylines->GetNextCell(npts, pts);
     //acell->SetPointIds((unsigned long*)pts, (unsigned long *)&(pts[npts-1]));
-    for (unsigned int jj=0; jj < npts; ++jj)
+    for (int jj=0; jj < npts; ++jj)
     {
       acell->SetPointId(jj, (CellType::PointIdentifier) pts[jj]);
     }
@@ -260,7 +260,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
   DissimilarityMeasure.fill(LargeDist);
 
 
-  for (int ClusterIdx = 0; ClusterIdx<NumberOfClusters; ++ClusterIdx)
+  for (unsigned int ClusterIdx = 0; ClusterIdx<NumberOfClusters; ++ClusterIdx)
   {
     // Build a distance map for each cluster center
     space->FillBuffer(0);
@@ -401,11 +401,11 @@ Array2DType ComputeLikelihood(const Array2DType &DissimilarityMatrix, ArrayType 
   Array2DType Likelihood; 
   Likelihood.SetSize(NumberOfTrajectories,NumberOfClusters);
   
-  for (int k=0; k<NumberOfClusters; ++k) 
+  for (unsigned int k=0; k<NumberOfClusters; ++k) 
   {  
     if (beta[k]>0) //valid distrubution
     {
-      for (int n=0; n<NumberOfTrajectories; ++n)
+      for (unsigned long int n=0; n<NumberOfTrajectories; ++n)
       {
         VariableType x = DissimilarityMatrix(n,k);
         Likelihood[n][k] = Gamma(x,alpha[k],beta[k]);
@@ -433,7 +433,7 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
   newLikelihood.SetSize(Likelihood.rows(),Likelihood.cols());
   newPrior.SetSize(Prior.rows(),Prior.cols());
 
-  for (long int n=0; n<Likelihood.rows(); ++n) //go over the trajectories
+  for (unsigned long int n=0; n<Likelihood.rows(); ++n) //go over the trajectories
   {
     arow = Likelihood.get_row(n);
     //To Do: set the threshold differently when havePrior = 1
@@ -522,7 +522,7 @@ void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2D
   X.SetSize(NumberOfClusters);
   N.SetSize(NumberOfClusters);
 
-  for (int k=0; k<NumberOfClusters; ++k)
+  for (unsigned int k=0; k<NumberOfClusters; ++k)
   { 
     N[k] = Posterior.get_column(k).sum();
     if (N[k]>0)
@@ -551,12 +551,12 @@ void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
     std::cerr<< "There is a miss-match between the number of trajectories and the membership probabilities to be assigned" <<std::endl;
   CellDataType cellvalue;
   ArrayType arow;
-  for (int t=0; t<Posterior.rows(); ++t)
+  for (unsigned int t=0; t<Posterior.rows(); ++t)
   { 
     VariableType my_max = -1;
     int my_max_idx;
     arow = Posterior.get_row(t);
-    for (int m=0; m<arow.Size(); ++m)
+    for (unsigned int m=0; m<arow.Size(); ++m)
       if (arow(m)>my_max) {my_max = arow(m); my_max_idx = m;} 
       CellAutoPointer atrajectory;
       mesh->GetCell(t, atrajectory);
@@ -577,7 +577,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   {
     post = Posterior.get_column(k);  //if the number of clusters is 1, Likelihood is more imformative than Posterior
     std::vector<long int> sigIDs;
-    for (long int p=0; p<post.Size(); ++p)
+    for (unsigned long int p=0; p<post.Size(); ++p)
     {
       if (post(p)>MinPosterior)
       {
@@ -734,7 +734,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   MeshType::Pointer SmoothMesh(MeshType* mesh)
   {
     MeshType::Pointer smoothedMesh = MeshType::New();
-    int NumberOfCells = mesh->GetNumberOfCells();
+    unsigned int NumberOfCells = mesh->GetNumberOfCells();
     long unsigned int newpid = 0;
     for (unsigned int k=0; k<NumberOfCells; ++k)
     {
@@ -810,7 +810,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
   void ComputeScalarMeasures(MeshType* Trajectories)
   {
-    for (long int t=0; t<Trajectories->GetNumberOfPoints(); ++t)
+    for (unsigned long int t=0; t<Trajectories->GetNumberOfPoints(); ++t)
     { 
       MeshType::PixelType pointvalue; 
       itk::FixedArray<double, 9 > tensor9;
@@ -974,7 +974,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   {
     MeshType::Pointer cluster;
     std::vector<long int> CellIds;
-    for (long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
+    for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
     { 
       CellAutoPointer atrajectory;
       CellDataType cellvalue;
@@ -1032,9 +1032,9 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     subSpace->SetOrigin(p1);
 
     //just for debug
-    ImageType::IndexType ind1,ind2;
+    /*ImageType::IndexType ind1,ind2;
     bool val1 = subSpace->TransformPhysicalPointToIndex(p1,ind1);
-    bool val2 = subSpace->TransformPhysicalPointToIndex(p2,ind2);
+    bool val2 = subSpace->TransformPhysicalPointToIndex(p2,ind2);*/
 
     return subSpace;
 }
@@ -1085,17 +1085,12 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
     // set the space to the limits of input trajectories
     ImageType::Pointer subSpace;
-    /*ImageType::SpacingType imageSpacing;
-    imageSpacing[0] = spacing[0];
-    imageSpacing[1] = spacing[1];
-    imageSpacing[2] = spacing[2];*/
-
     subSpace = getSubSpace(Trajectories, spacing);
 
     ///// START /////
 
     bool debug =0;
-    for (unsigned int i=0; i<nIterations; ++i)
+    for (int i=0; i<nIterations; ++i)
     {
       std::cout<< "Iteration  " << i+1 << std::endl;
       DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace);
@@ -1168,7 +1163,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     //Generate seperate mesh for each cluster -> cluster + center:
     std::vector <MeshType::Pointer> cluster, center;
     std::vector<long int> cellIds;
-    for (int k=0; k<Centers->GetNumberOfCells(); ++k)
+    for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
       cluster.push_back(getCluster(Trajectories,k));
       cellIds.clear(); 
@@ -1177,7 +1172,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     }
 
     //Generate text files of the scalar measures along the trajectories
-    for (int k=0; k<Centers->GetNumberOfCells(); ++k)
+    for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
       BuildFeatureMatrix(cluster[k],center[k],k, subSpace);
     }
