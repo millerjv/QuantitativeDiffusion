@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 2.4)
-# This project is designed to be built outside the Insight source tree.
 PROJECT(Clustering)
+
+cmake_minimum_required(VERSION 2.4)
 
 # Slicer3
 find_package(Slicer3 REQUIRED)
@@ -40,4 +40,4 @@ ENDIF (GenerateCLP_FOUND)
 
 TARGET_LINK_LIBRARIES( EMClustering ITKCommon ITKIO VTKIO VTKCommon VTKFiltering VTKGraphics VTKRendering)
 
-
+slicer3_install_plugins(EMClustering)
