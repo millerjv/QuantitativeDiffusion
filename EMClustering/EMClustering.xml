@@ -38,6 +38,42 @@
       <description>Output of clustering which is a set of labeled trajectories</description>
     </geometry>
 
+    <geometry  type="fiberbundle">
+      <name>outputCentersFilename</name>
+      <label>Output Centers</label>
+      <channel>output</channel>
+      <longflag>outputCenters</longflag>
+      <description>Cluster centers</description>
+      <default>centers.vtp</default>
+    </geometry>
+
+    <boolean>
+      <name>PerformQuantitativeAnalysis</name>
+      <label>Perform tract-oriented quantitative analysis</label>
+      <longflag>quant</longflag>
+      <description>Perform tract-oriented quantitative analysis?</description>
+      <default>1</default>
+    </boolean> 
+
+  <directory>
+      <name>OutputDirectory</name>
+      <label>Output Directory</label>
+      <channel>output</channel>
+      <longflag>outdirectory</longflag>
+      <description>Directory in which to save features along the fibers</description>
+    </directory>
+
+    <string>
+      <name>FilePrefix</name>
+      <label>File Prefix Name</label>
+      <flag>f</flag>
+      <longflag>prefix</longflag>
+      <description>Name to use for feature files</description>
+      <default>feature</default>
+    </string>  
+    
+ 
+
   </parameters>
 
   <parameters>
@@ -48,7 +84,7 @@
       <name>nIterations</name>
       <label>Iterations</label>
       <!-- <channel>input</channel> -->
-      <default>2</default>
+      <default>3</default>
       <constraints>
         <minimum>1</minimum>
         <maximum>5</maximum>
@@ -95,6 +131,7 @@
       <description>Space resolution for Distance Map calculation</description>
     </double-vector>
 
+    <!--
     <float>
       <name>MinPost</name>
       <label>Minimum Posterior</label>
@@ -108,7 +145,8 @@
       <longflag>min_post</longflag>
       <description>Minimum posterior specifies which trajectories contribute to generating new centers</description>
     </float>
-
+    -->
+    
     <float>
       <name>MaxDist</name>
       <label>Maximum Distance</label>
