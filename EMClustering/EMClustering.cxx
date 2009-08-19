@@ -1216,6 +1216,7 @@ int main(int argc, char* argv[])
   Centers = ReadVTKfile(centersFilename.c_str());
   CopyFieldType copyField = {0,0,1,1}; 
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
+  MinLikelihoodThr = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
 
   /*std::vector<long int> CellIDs;
   CellIDs.push_back(5); 
@@ -1267,7 +1268,7 @@ int main(int argc, char* argv[])
     //EM Block Begins
     Likelihood = ComputeLikelihood(DissimilarityMatrix, alpha, beta);
     MeshType::Pointer RefinedTrajectories;
-    MinLikelihoodThr = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
+    
     MyMinLikelihoodThr = AdjustThreshold(MinLikelihoodThr, alpha, beta);
 
     if (debug)
