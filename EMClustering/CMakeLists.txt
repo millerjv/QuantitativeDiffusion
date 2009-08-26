@@ -14,7 +14,6 @@ IF (GenerateCLP_FOUND)
 ENDIF (GenerateCLP_FOUND)
 
 
-
 # Default install prefix
 slicer3_set_default_install_prefix_for_external_projects()
 
@@ -28,7 +27,7 @@ ENDIF(ITK_FOUND)
 # Find VTK.
 FIND_PACKAGE(VTK)
 IF(VTK_FOUND)
-	INCLUDE(${VTK_USE_FILE})
+  INCLUDE(${VTK_USE_FILE})
 ENDIF(VTK_FOUND)
 
 
@@ -38,6 +37,6 @@ IF (GenerateCLP_FOUND)
   slicer3_set_plugins_output_path(EMClustering)
 ENDIF (GenerateCLP_FOUND)
 
-TARGET_LINK_LIBRARIES( EMClustering ITKCommon ITKIO VTKIO VTKCommon VTKFiltering VTKGraphics VTKRendering)
+TARGET_LINK_LIBRARIES( EMClustering ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering)
 
 slicer3_install_plugins(EMClustering)
