@@ -54,13 +54,14 @@ itk::Array<long int>                       Correspondence;
 
 typedef struct{std::string   CaseName; 
 int                          ClusterLabel;
+ArrayType                    membershipProbability;
 ArrayType                    atlasPriors;
 }CellDataType; 
 
 typedef struct{bool   FA; 
-bool   EigenValues;
-bool   Tensor;
-bool   ClusterLabel;
+bool                  EigenValues;
+bool                  Tensor;
+bool                  ClusterLabel;
 }CopyFieldType; 
 
 
@@ -100,6 +101,11 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   clusterScalars->SetNumberOfTuples(mesh->GetNumberOfCells());
   clusterScalars->SetName("ClusterId");
 
+
+  vtkDoubleArray* clusterMembershipProbs = vtkDoubleArray::New();
+  clusterMembershipProbs->SetNumberOfTuples(mesh->GetNumberOfCells());
+  clusterMembershipProbs->SetName("membershipProbabilities");
+
   itk::FixedArray<double, 9 >  MyTensor;
   double MyFA;
   MeshType::PixelType pointvalue;
@@ -122,17 +128,19 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   }
 
   polydata->SetPoints(vpoints);
-
+  
+  //COPY POINT DATA
+  
   if (copyField.Tensor)
   {
     polydata->GetPointData()->SetTensors(tensors);
   }
 
-  // write the FA values to the file if they are valid/assigned 
   if (copyField.FA)
   {
     polydata->GetPointData()->SetScalars(scalars);
   }
+
 
   vtkCellArray *polylines = vtkCellArray::New();
   CellAutoPointer acell;
@@ -150,18 +158,30 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
 
     mesh->GetCellData(i, &cellvalue);
     clusterScalars->SetValue(i,cellvalue.ClusterLabel);
+    clusterMembershipProbs->SetNumberOfComponents(cellvalue.membershipProbability.Size());
+    for (unsigned int p=0; p< cellvalue.membershipProbability.Size(); p++)
+    {
+    clusterMembershipProbs->InsertComponent(i,p,cellvalue.membershipProbability(p));
+    }
   }
 
+  //COPY CELL DATA
   if (copyField.ClusterLabel)
   {
-    polydata->GetCellData()->SetScalars(clusterScalars);
+    polydata->GetCellData()->AddArray(clusterScalars);  
+    polydata->GetCellData()->AddArray(clusterMembershipProbs);
   }
   polydata->SetLines( polylines );
+
+  //polydata->Print(std::cout);
+
+  
   polylines->Delete();
   vpoints->Delete();
   tensors->Delete();
   scalars->Delete();
   clusterScalars->Delete();
+  clusterMembershipProbs->Delete();
 }
 
 vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
@@ -190,8 +210,11 @@ void CopyVtkPolyData2ItkMesh(vtkPolyData* polydata, MeshType* mesh)
     vpoint[1]= - vpoint[1];  
 
     mesh->SetPoint(i, vpoint);
+    if (tensors)
+    {
     pointvalue.Tensor = tensors->GetTuple9(i);
     mesh->SetPointData(i, pointvalue);
+    }
   }
 
   CellAutoPointer acell;
@@ -292,7 +315,19 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       {
         outOfSpace = 0;
         space->SetPixel(ind,space->ComputeOffset(ind));
-        MyLabels.push_back(space->ComputeOffset(ind));
+        //This part tries to populate the unique labels in MyLabels along each center
+        if (MyLabels.size()==0)
+        {
+         MyLabels.push_back(space->ComputeOffset(ind));
+        }
+        else
+        {
+          if (!(MyLabels.at(MyLabels.size()-1)==space->ComputeOffset(ind)))
+          {
+           MyLabels.push_back(space->ComputeOffset(ind));
+          }
+        }
+        //-------------
       }
       else
       {
@@ -300,7 +335,6 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       }
       ++pit;
     }
-
 
 
     if (!outOfSpace)
@@ -373,13 +407,18 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
         {
           for (unsigned int n=0; n < MyLabelsOnTrajectory.size(); ++n)
             if (MyLabels.at(m) == MyLabelsOnTrajectory.at(n))
-            {LabelExisted ++; break;}
+            {
+              LabelExisted ++; 
+              break;
+            }
         }
 
+      
         VariableType AveDist = sumdist/(atrajectory->GetNumberOfPoints());
-        VariableType missMatch = (MyLabels.size() - LabelExisted)*AveDist;
+        VariableType missMatch = (VariableType)(MyLabels.size() - LabelExisted)/MyLabels.size()*AveDist;
         //2nd output
-        DissimilarityMeasure[t][ClusterIdx] = (sumdist + 2*missMatch)/(atrajectory->GetNumberOfPoints());  
+        DissimilarityMeasure[t][ClusterIdx] = (AveDist + missMatch);  
+        // std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " "<<LabelExisted<<" "<< missMatch<<std::endl;
         LabelExisted = 0;
 
       }
@@ -566,7 +605,9 @@ void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2D
 void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
 { 
   if (Posterior.rows()!= mesh->GetNumberOfCells())
+  {
     std::cerr<< "There is a miss-match between the number of trajectories and the membership probabilities to be assigned" <<std::endl;
+  }
   CellDataType cellvalue;
   ArrayType arow;
   for (unsigned int t=0; t<Posterior.rows(); ++t)
@@ -574,12 +615,21 @@ void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
     VariableType my_max = -1;
     int my_max_idx;
     arow = Posterior.get_row(t);
+    // find the maximum membership probability for t'th trajectory
     for (unsigned int m=0; m<arow.Size(); ++m)
-      if (arow(m)>my_max) {my_max = arow(m); my_max_idx = m;} 
+    {
+      if (arow(m)>my_max) 
+      {
+        my_max = arow(m); 
+        my_max_idx = m;
+      }
+    } 
       CellAutoPointer atrajectory;
       mesh->GetCell(t, atrajectory);
       mesh->GetCellData(t, &cellvalue );
       cellvalue.ClusterLabel = my_max_idx+1;    //start the Cluster Labels (Ids) from 1
+      cellvalue.membershipProbability.SetSize(arow.Size());
+      cellvalue.membershipProbability = arow;
       mesh->SetCellData(t, cellvalue );
   }
 }
@@ -911,7 +961,12 @@ void ComputeScalarMeasures(MeshType* Trajectories)
     EigenValuesArrayType eigenvals;
     tensor6.ComputeEigenValues(eigenvals);
     pointvalue.EigenValues = eigenvals;
-    pointvalue.FA = tensor6.GetFractionalAnisotropy();  //TO DO: check why there are few cases that FA is computed to be greater than 1.
+    pointvalue.FA = tensor6.GetFractionalAnisotropy();
+    //TO DO: check why there are few cases that FA is computed to be greater than 1.
+    if (pointvalue.FA>=1)
+    {
+      pointvalue.FA = 0.5; // for now
+    }
     Trajectories->SetPointData(t, pointvalue );
 
   }
@@ -1093,6 +1148,30 @@ MeshType::Pointer getCluster(MeshType* Trajectories,int k)
 }
 
 
+Array2DType getClusterPosterior(Array2DType Posterior, MeshType* Trajectories,int k)
+{
+  Array2DType post;
+  std::vector<long int> CellIds;
+  for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
+  { 
+    CellAutoPointer atrajectory;
+    CellDataType cellvalue;
+    Trajectories->GetCell(t, atrajectory);
+    Trajectories->GetCellData(t, &cellvalue );
+    if (cellvalue.ClusterLabel == k+1)  
+    {
+      CellIds.push_back(t);
+    }
+  }
+  post.set_size(CellIds.size(),Posterior.cols());
+  for (unsigned long int c=0; c<CellIds.size(); ++c)
+  {
+    post.set_row(c,Posterior.get_row(CellIds[c]));
+  }
+  return post;
+}
+
+
 ImageType::Pointer getSubSpace(const MeshType* Trajectories, std::vector<double> spacing)
 {
   ImageType::Pointer subSpace = ImageType::New();
@@ -1184,6 +1263,48 @@ ArrayType meanMat(Array2DType X)                          //TO Do: compute the w
   }
 
   return mX;
+} 
+
+ArrayType meanMat(Array2DType X, Array2DType P)                          //TO Do: compute the weighted average
+//take the column-wise weighted mean of the matrix X, ignoring the zero elements.
+{ 
+  X = element_product(X, P);   //x = x.p(x)
+  ArrayType mX;
+  mX.SetSize(X.cols());
+  ArrayType aCol;
+  for (unsigned int c = 0; c<X.cols(); c++)
+  {
+
+    aCol = X.get_column(c);
+    VariableType s = aCol.sum();
+    
+    if (aCol.min_value() != 0)
+    {
+      mX(c) = s/P.get_column(c).sum();
+    }
+    else
+    {
+      
+      VariableType n = 0;
+      for (unsigned int i =0; i<aCol.Size(); i++)
+      {
+        if (aCol(i))
+          n+= P.get_column(c).get(i);
+      }
+      if (n!=0)
+      {
+        mX(c) = s/n;
+      } 
+      else
+      {
+        mX(c)=0;
+        std::cout << "zero column at" << c << "!" <<std::endl;
+      } 
+    }
+
+  }
+
+  return mX;
 }       
 
 void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, ArrayType f)
@@ -1216,7 +1337,8 @@ int main(int argc, char* argv[])
   Centers = ReadVTKfile(centersFilename.c_str());
   CopyFieldType copyField = {0,0,1,1}; 
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
-  MinLikelihoodThr = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
+  VariableType MinLike = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
+  
 
   /*std::vector<long int> CellIDs;
   CellIDs.push_back(5); 
@@ -1248,7 +1370,7 @@ int main(int argc, char* argv[])
 
   ///// START /////
 
-  bool debug =0;
+  bool debug = 0;
   VariableType dd;
   for (int i=0; i<nIterations; ++i)
   {
@@ -1268,8 +1390,7 @@ int main(int argc, char* argv[])
     //EM Block Begins
     Likelihood = ComputeLikelihood(DissimilarityMatrix, alpha, beta);
     MeshType::Pointer RefinedTrajectories;
-    
-    MyMinLikelihoodThr = AdjustThreshold(MinLikelihoodThr, alpha, beta);
+    MyMinLikelihoodThr = AdjustThreshold(MinLike, alpha, beta);
 
     if (debug)
     {
@@ -1339,7 +1460,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-
+ //PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh: 
@@ -1349,22 +1470,35 @@ int main(int argc, char* argv[])
     std::vector <MeshType::Pointer> cluster, center, centerWithData;
     std::vector<long int> cellId;
     std::vector <Array3DType> clusterFeatures;
-
+    Array3DType posts;
 
     for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
+      //Seperate cluster k'th
       cluster.push_back(getCluster(Trajectories,k));
+      //seperate center  k'th
       cellId.clear(); cellId.push_back(k);
       center.push_back(getTrajectories(oldCenters,cellId));
-
+      //seperate posterior probabilities
+      posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
+      //write out the posteriors for each cluster
+      ofstream myfile;
+      char fileName1[250];
+      sprintf(fileName1, "%s/%s_posterior%d.txt", OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
+      myfile.open (fileName1);
+      myfile << posts[k];
+      myfile.close();
+      
+      //Compute the feature matrices and write them out:
       clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
       writeTxTfiles(clusterFeatures[k], k , FilePrefix, OutputDirectory);
 
+      //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
       ArrayType meanFA;
       meanFA = meanMat(clusterFeatures[k].at(0));                          //TO Do: compute the weighted average
 
       //Add point data to the cell with the cell ID of cellId in the oldCenters mesh:
-      AddPointScalarToACell(oldCenters,k, meanFA );                //oldCenters gets updated.
+      AddPointScalarToACell(oldCenters,k, meanFA );                        //oldCenters gets updated.
       centerWithData.push_back(getTrajectories(oldCenters,cellId));
 
       // Write individual files for each cluster and its center.
