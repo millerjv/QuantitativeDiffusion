@@ -128,9 +128,9 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   }
 
   polydata->SetPoints(vpoints);
-  
+
   //COPY POINT DATA
-  
+
   if (copyField.Tensor)
   {
     polydata->GetPointData()->SetTensors(tensors);
@@ -161,7 +161,7 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
     clusterMembershipProbs->SetNumberOfComponents(cellvalue.membershipProbability.Size());
     for (unsigned int p=0; p< cellvalue.membershipProbability.Size(); p++)
     {
-    clusterMembershipProbs->InsertComponent(i,p,cellvalue.membershipProbability(p));
+      clusterMembershipProbs->InsertComponent(i,p,cellvalue.membershipProbability(p));
     }
   }
 
@@ -175,7 +175,7 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
 
   //polydata->Print(std::cout);
 
-  
+
   polylines->Delete();
   vpoints->Delete();
   tensors->Delete();
@@ -212,8 +212,8 @@ void CopyVtkPolyData2ItkMesh(vtkPolyData* polydata, MeshType* mesh)
     mesh->SetPoint(i, vpoint);
     if (tensors)
     {
-    pointvalue.Tensor = tensors->GetTuple9(i);
-    mesh->SetPointData(i, pointvalue);
+      pointvalue.Tensor = tensors->GetTuple9(i);
+      mesh->SetPointData(i, pointvalue);
     }
   }
 
@@ -279,6 +279,28 @@ MeshType::Pointer ReadVTKfile(std::string filename)
   return mesh;
 }
 
+void WriteCSVfile(std::string fileName, Array2DType mat)
+{
+  ofstream myfile;
+  std::cout<< "Writing out "<< fileName.c_str() << "..." << std::endl;
+  myfile.open (fileName.c_str());
+  for (unsigned long int r=0; r<mat.rows(); r++)
+  {
+    for (unsigned int c=0; c<mat.cols(); c++)
+    {
+      myfile << mat(r,c);
+      if (c <mat.cols()-1)
+      {
+        myfile << ",";
+      }
+    }
+    if (r<mat.rows()-1)
+    {
+      myfile << std::endl;
+    }
+  }
+  myfile.close();
+}
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -318,13 +340,13 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
         //This part tries to populate the unique labels in MyLabels along each center
         if (MyLabels.size()==0)
         {
-         MyLabels.push_back(space->ComputeOffset(ind));
+          MyLabels.push_back(space->ComputeOffset(ind));
         }
         else
         {
           if (!(MyLabels.at(MyLabels.size()-1)==space->ComputeOffset(ind)))
           {
-           MyLabels.push_back(space->ComputeOffset(ind));
+            MyLabels.push_back(space->ComputeOffset(ind));
           }
         }
         //-------------
@@ -413,7 +435,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
             }
         }
 
-      
+
         VariableType AveDist = sumdist/(atrajectory->GetNumberOfPoints());
         VariableType missMatch = (VariableType)(MyLabels.size() - LabelExisted)/MyLabels.size()*AveDist;
         //2nd output
@@ -624,13 +646,13 @@ void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
         my_max_idx = m;
       }
     } 
-      CellAutoPointer atrajectory;
-      mesh->GetCell(t, atrajectory);
-      mesh->GetCellData(t, &cellvalue );
-      cellvalue.ClusterLabel = my_max_idx+1;    //start the Cluster Labels (Ids) from 1
-      cellvalue.membershipProbability.SetSize(arow.Size());
-      cellvalue.membershipProbability = arow;
-      mesh->SetCellData(t, cellvalue );
+    CellAutoPointer atrajectory;
+    mesh->GetCell(t, atrajectory);
+    mesh->GetCellData(t, &cellvalue );
+    cellvalue.ClusterLabel = my_max_idx+1;    //start the Cluster Labels (Ids) from 1
+    cellvalue.membershipProbability.SetSize(arow.Size());
+    cellvalue.membershipProbability = arow;
+    mesh->SetCellData(t, cellvalue );
   }
 }
 
@@ -975,6 +997,7 @@ void ComputeScalarMeasures(MeshType* Trajectories)
 Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, int clusterId, ImageType* refImage)
 {
   Array2DType fMatrix1,fMatrix2,fMatrix3,fMatrix4;  // NxS (Number of Trajectories x Number of Samples on the Center)
+  VariableType nanVal = -1;
   unsigned long int numberOfTrajectories = cluster->GetNumberOfCells();
   unsigned int numberOfSamples = center->GetNumberOfPoints();
   fMatrix1.set_size(numberOfTrajectories,numberOfSamples);
@@ -1037,10 +1060,10 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
         }
         else
         {
-          fMatrix1[t][s] = 0;
-          fMatrix2[t][s] = 0;
-          fMatrix3[t][s] = 0;
-          fMatrix4[t][s] = 0;
+          fMatrix1[t][s] = nanVal;
+          fMatrix2[t][s] = nanVal;
+          fMatrix3[t][s] = nanVal;
+          fMatrix4[t][s] = nanVal;
         }
       }
     }
@@ -1064,34 +1087,26 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
   return allFeatures;
 }
 
-void writeTxTfiles(Array3DType allFeatures, int clusterId, std::string FilePrefix, std::string OutputDirectory)
+void writeCSVfilesOfFeatures(Array3DType allFeatures, int clusterId, std::string FilePrefix, std::string OutputDirectory)
 {
   //now write out the feature matrices to files:
-  ofstream myfile;
+  
   char fileName1[250];
-  sprintf(fileName1, "%s/%s_FA%d.txt", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  myfile.open (fileName1);
-  myfile << allFeatures.at(0);
-  myfile.close();
-
+  sprintf(fileName1, "%s/%s_FA_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
+  WriteCSVfile(fileName1,allFeatures.at(0));
+  
 
   char fileName2[250];
-  sprintf(fileName2, "%s/%s_MD%d.txt", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  myfile.open (fileName2);
-  myfile << allFeatures.at(1);
-  myfile.close();
-
+  sprintf(fileName2, "%s/%s_MD_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
+  WriteCSVfile(fileName2,allFeatures.at(1));
+  
   char fileName3[250];
-  sprintf(fileName3, "%s/%s_PreDiff%d.txt", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  myfile.open (fileName3);
-  myfile << allFeatures.at(2);
-  myfile.close();
+  sprintf(fileName3, "%s/%s_PreDiff_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
+  WriteCSVfile(fileName3,allFeatures.at(2));
 
   char fileName4[250];
-  sprintf(fileName4, "%s/%s_ParDiff%d.txt", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  myfile.open (fileName4);
-  myfile << allFeatures.at(3);
-  myfile.close();
+  sprintf(fileName4, "%s/%s_ParDiff_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
+  WriteCSVfile(fileName4,allFeatures.at(3));
 }
 
 
@@ -1226,7 +1241,7 @@ void  fillPriorInfo(Array2DType &Prior, MeshType* Trajectories)
   }
 }
 
-ArrayType meanMat(Array2DType X)                          //TO Do: compute the weighted average
+ArrayType meanMat(Array2DType X, int nanVal=0)                          
 //take the column-wise mean of the matrix X, ignoring the zero elements.
 { 
   ArrayType mX;
@@ -1236,18 +1251,23 @@ ArrayType meanMat(Array2DType X)                          //TO Do: compute the w
   {
 
     aCol = X.get_column(c);
-    if (aCol.min_value() != 0)
+
+    // if there is no NAN in the colume:   (here we assume that the nanVal is 0 or a negative number.
+    if (aCol.min_value() != nanVal)
     {
       mX(c) = aCol.mean();
     }
     else
     {
-      double s = aCol.sum();
+      double s = 0;
       unsigned int n = 0;
       for (unsigned int i =0; i<aCol.Size(); i++)
       {
-        if (aCol(i))
+        if (aCol(i)!= nanVal)
+        {
+          s+=aCol(i);
           n++;
+        }
       }
       if (n!=0)
       {
@@ -1255,8 +1275,9 @@ ArrayType meanMat(Array2DType X)                          //TO Do: compute the w
       } 
       else
       {
+        //
         mX(c)=0;
-        std::cout << "zero column at" << c << "!" <<std::endl;
+        std::cout << "NaN column at " << c << "!" <<std::endl;
       } 
     }
 
@@ -1265,8 +1286,8 @@ ArrayType meanMat(Array2DType X)                          //TO Do: compute the w
   return mX;
 } 
 
-ArrayType meanMat(Array2DType X, Array2DType P)                          //TO Do: compute the weighted average
-//take the column-wise weighted mean of the matrix X, ignoring the zero elements.
+ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)                          
+//take the column-wise 'weighted mean' of the matrix X, ignoring the zero elements.
 { 
   X = element_product(X, P);   //x = x.p(x)
   ArrayType mX;
@@ -1276,20 +1297,24 @@ ArrayType meanMat(Array2DType X, Array2DType P)                          //TO Do
   {
 
     aCol = X.get_column(c);
-    VariableType s = aCol.sum();
-    
-    if (aCol.min_value() != 0)
+    VariableType s;
+
+    if (aCol.min_value() != nanVal)
     {
+      s = aCol.sum();
       mX(c) = s/P.get_column(c).sum();
     }
     else
     {
-      
       VariableType n = 0;
       for (unsigned int i =0; i<aCol.Size(); i++)
       {
-        if (aCol(i))
+        if (aCol(i) != nanVal)
+        {
           n+= P.get_column(c).get(i);
+          s+= aCol(i);
+        }
+          
       }
       if (n!=0)
       {
@@ -1298,7 +1323,7 @@ ArrayType meanMat(Array2DType X, Array2DType P)                          //TO Do
       else
       {
         mX(c)=0;
-        std::cout << "zero column at" << c << "!" <<std::endl;
+        std::cout << "NaN column at " << c << "!" <<std::endl;
       } 
     }
 
@@ -1324,8 +1349,6 @@ void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, Arr
 }
 
 
-
-
 int main(int argc, char* argv[])
 {
 
@@ -1338,7 +1361,7 @@ int main(int argc, char* argv[])
   CopyFieldType copyField = {0,0,1,1}; 
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
   VariableType MinLike = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
-  
+
 
   /*std::vector<long int> CellIDs;
   CellIDs.push_back(5); 
@@ -1408,7 +1431,7 @@ int main(int argc, char* argv[])
     UpdateModelParameters(DissimilarityMatrix,Posterior,alpha,beta,Prior,havePrior);   
     //EM Block Ends
 
-
+    
     if (debug)
     {
       WriteVTKfile(RefinedTrajectories, "RefinedTraj.vtp", copyField);
@@ -1416,13 +1439,9 @@ int main(int argc, char* argv[])
       std::cout<< "alpha = " << alpha << std::endl;
       std::cout<< "beta = " << beta << std::endl;
 
-
-      ofstream myfile;
       char fileName[250];
-      sprintf(fileName, "%s/posterior%d.txt", OutputDirectory.c_str(),i+1);
-      myfile.open (fileName);
-      myfile << Posterior;
-      myfile.close();
+      sprintf(fileName, "%s/posterior%d.csv", OutputDirectory.c_str(),i+1);
+      WriteCSVfile(fileName, Posterior);
     }
 
     //Update centers:
@@ -1460,7 +1479,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
- //PerformQuantitativeAnalysis = 1;
+  //PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh: 
@@ -1482,20 +1501,18 @@ int main(int argc, char* argv[])
       //seperate posterior probabilities
       posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
       //write out the posteriors for each cluster
-      ofstream myfile;
-      char fileName1[250];
-      sprintf(fileName1, "%s/%s_posterior%d.txt", OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
-      myfile.open (fileName1);
-      myfile << posts[k];
-      myfile.close();
       
+      char fileName1[250];
+      sprintf(fileName1, "%s/%s_posterior%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
+      WriteCSVfile(fileName1, posts[k]);
+
       //Compute the feature matrices and write them out:
       clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
-      writeTxTfiles(clusterFeatures[k], k , FilePrefix, OutputDirectory);
+      writeCSVfilesOfFeatures(clusterFeatures[k], k , FilePrefix, OutputDirectory);
 
       //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
       ArrayType meanFA;
-      meanFA = meanMat(clusterFeatures[k].at(0));                          //TO Do: compute the weighted average
+      meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TO Do: compute the weighted average
 
       //Add point data to the cell with the cell ID of cellId in the oldCenters mesh:
       AddPointScalarToACell(oldCenters,k, meanFA );                        //oldCenters gets updated.
@@ -1517,7 +1534,12 @@ int main(int argc, char* argv[])
   }
 
   //write centers with new point data from the quantitative analysis part.
-  copyField.FA = 1; copyField.Tensor = 0; 
+  if (PerformQuantitativeAnalysis)
+  {copyField.FA = 1;} 
+  else
+  {copyField.FA = 0;}
+
+  copyField.Tensor = 0; 
   WriteVTKfile(oldCenters, outputCentersFilename.c_str(),copyField);
 
 
