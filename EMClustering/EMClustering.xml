@@ -6,8 +6,10 @@
 
   </description>
   <version>1.0</version>
-  <documentation-url></documentation-url>
-  <license>GE</license>
+  <documentation-url>
+    http://www.nitrc.org/projects/quantitativedti/
+  </documentation-url>
+  <license></license>
   <contributor>Mahnaz Maddah, Ph. D.</contributor>
 
   <parameters>
@@ -52,7 +54,7 @@
       <label>Perform tract-oriented quantitative analysis</label>
       <longflag>quant</longflag>
       <description>Perform tract-oriented quantitative analysis?</description>
-      <default>1</default>
+      <default>true</default>
     </boolean> 
 
   <directory>
