@@ -940,8 +940,9 @@ void SetInitialValue(const Array2DType &DissimilarityMatrix, ArrayType &beta)
         sumErr+=DissimilarityMatrix(t,k);
         n++;
       }
-      beta[k] = sumErr/n; //////////////////////////////////////////////////
-      beta[k] = 10;
+      beta[k] = sumErr/n; 
+      //std::cout<< beta[k] << std::endl;  
+      //beta[k] = 5;
   }
 }
 
@@ -1360,7 +1361,7 @@ int main(int argc, char* argv[])
   Centers = ReadVTKfile(centersFilename.c_str());
   CopyFieldType copyField = {0,0,1,1}; 
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
-  VariableType MinLike = 0.072*MinLikelihoodThr - 0.02;   // 10->0.7 ; 1 ->0.05
+  VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
 
 
   /*std::vector<long int> CellIDs;
@@ -1374,7 +1375,7 @@ int main(int argc, char* argv[])
 
   //EM Initialization
   alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1); 
-  beta.SetSize(Centers->GetNumberOfCells()); beta.fill(10);
+  beta.SetSize(Centers->GetNumberOfCells()); beta.fill(5);
   Prior.SetSize(Trajectories->GetNumberOfCells(),Centers->GetNumberOfCells());
   bool havePrior = 0;
   if (havePrior)
@@ -1399,11 +1400,6 @@ int main(int argc, char* argv[])
   {
     std::cout<< "Iteration  " << i+1 << std::endl;
     DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace);
-    if (i==0) 
-    {
-      SetInitialValue(DissimilarityMatrix, beta);
-    }
-
     if (debug)
     {
       std::cout<< DissimilarityMatrix << std::endl;
@@ -1467,7 +1463,7 @@ int main(int argc, char* argv[])
     dd = diffMeshes(oldCenters, Centers);
     std::cout<< dd <<std::endl;
     Trajectories = RefinedTrajectories;
-    if (dd<3) break;
+    if (dd<3 && i>1) break;
   }
 
   AssignClusterLabels(Trajectories,Posterior);
