@@ -7,7 +7,8 @@
   </description>
   <version>1.0</version>
   <documentation-url>
-    http://www.nitrc.org/projects/quantitativedti/
+    For more information visit: http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.5
+    To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/
   </documentation-url>
   <license></license>
   <contributor>Mahnaz Maddah, Ph. D.</contributor>
@@ -100,10 +101,10 @@
     <float>
       <name>MinLikelihoodThr</name>
       <label>Compactness of fiber bundles</label>
-      <default>5</default>
+      <default>3</default>
       <constraints>
         <minimum>1</minimum>
-        <maximum>10</maximum>
+        <maximum>5</maximum>
         <step>1</step>
       </constraints>
       <flag>l</flag>
