@@ -985,7 +985,7 @@ void ComputeScalarMeasures(MeshType* Trajectories)
     tensor6.ComputeEigenValues(eigenvals);
     pointvalue.EigenValues = eigenvals;
     pointvalue.FA = tensor6.GetFractionalAnisotropy();
-    //TO DO: check why there are few cases that FA is computed to be greater than 1.
+    
     if (pointvalue.FA>=1)
     {
       pointvalue.FA = 0.5; // for now
@@ -1102,7 +1102,7 @@ void writeCSVfilesOfFeatures(Array3DType allFeatures, int clusterId, std::string
   WriteCSVfile(fileName2,allFeatures.at(1));
   
   char fileName3[250];
-  sprintf(fileName3, "%s/%s_PreDiff_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
+  sprintf(fileName3, "%s/%s_PerDiff_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
   WriteCSVfile(fileName3,allFeatures.at(2));
 
   char fileName4[250];
@@ -1179,10 +1179,10 @@ Array2DType getClusterPosterior(Array2DType Posterior, MeshType* Trajectories,in
       CellIds.push_back(t);
     }
   }
-  post.set_size(CellIds.size(),Posterior.cols());
+  post.set_size(CellIds.size(),1);
   for (unsigned long int c=0; c<CellIds.size(); ++c)
   {
-    post.set_row(c,Posterior.get_row(CellIds[c]));
+    post.set_row(c,Posterior.get(CellIds[c],k)); //Posterior.get_row(CellIds[c])
   }
   return post;
 }
@@ -1499,8 +1499,8 @@ int main(int argc, char* argv[])
       //write out the posteriors for each cluster
       
       char fileName1[250];
-      sprintf(fileName1, "%s/%s_posterior%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
-      WriteCSVfile(fileName1, posts[k]);
+      sprintf(fileName1, "%s/%s_posterior%d.csv",OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
+      WriteCSVfile(fileName1, posts[k]);   
 
       //Compute the feature matrices and write them out:
       clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
