@@ -34,7 +34,7 @@ for k= 1:length(clusterIds)
     [FA] = load([fileDir, filePrefix,sprintf('_FA_cluster%d.csv',clusterIds(k))]);           %NxS
     [MD] = load([fileDir, filePrefix,sprintf('_MD_cluster%d.csv',clusterIds(k))]);           %NxS
     [parDiff] = load([fileDir, filePrefix,sprintf('_ParDiff_cluster%d.csv',clusterIds(k))]); %NxS
-    [preDiff] = load([fileDir, filePrefix,sprintf('_PreDiff_cluster%d.csv',clusterIds(k))]); %NxS
+    [preDiff] = load([fileDir, filePrefix,sprintf('_PerDiff_cluster%d.csv',clusterIds(k))]); %NxS
 
     data =cell(4);
     data{1} = FA;
