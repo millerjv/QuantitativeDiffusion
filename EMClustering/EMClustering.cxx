@@ -1111,7 +1111,7 @@ void writeCSVfilesOfFeatures(Array3DType allFeatures, int clusterId, std::string
 }
 
 
-MeshType::Pointer getTrajectories(MeshType* mesh, std::vector<long int> CellIDs)
+MeshType::Pointer getTrajectories(MeshType* mesh, std::vector<unsigned long int> CellIDs)
 { 
   MeshType::Pointer selectedCells=MeshType::New();  
   CellAutoPointer aCell, MyCell;
@@ -1147,7 +1147,7 @@ MeshType::Pointer getTrajectories(MeshType* mesh, std::vector<long int> CellIDs)
 MeshType::Pointer getCluster(MeshType* Trajectories,int k)
 {
   MeshType::Pointer cluster;
-  std::vector<long int> CellIds;
+  std::vector<unsigned long int> CellIds;
   for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
   { 
     CellAutoPointer atrajectory;
@@ -1349,6 +1349,48 @@ void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, Arr
 
 }
 
+std::vector<unsigned long int> findTheClosestTrajectory(MeshType* mesh, std::vector<MeshType::PointType> seeds)
+{
+  std::vector<unsigned long int> cellIds;
+  VariableType MinDist = itk::NumericTraits<VariableType>::max(); 
+  ArrayType minDists;
+  minDists.set_size(seeds.size());
+  minDists.Fill(MinDist);
+
+  for(unsigned int s=0; s<seeds.size(); s++)
+  {cellIds.push_back(0);}
+
+
+  MeshType::PointType tpoint;
+  for (unsigned long int t=0; t<mesh->GetNumberOfCells(); ++t)
+  {
+          CellAutoPointer atrajectory;
+          mesh->GetCell(t,atrajectory);
+          PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+
+          for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
+          {
+            mesh->GetPoint(*pit, &tpoint);
+
+            for(unsigned int s=0; s<seeds.size(); s++)
+            {
+         
+              VariableType dist = tpoint.EuclideanDistanceTo(seeds.at(s));
+              
+              if (dist<minDists(s))
+              {
+                minDists[s] = dist;
+                cellIds.at(s) = t;
+              }
+            }
+            pit++;
+          }
+          
+  }
+
+  return cellIds;
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -1358,7 +1400,40 @@ int main(int argc, char* argv[])
   MeshType::Pointer    Trajectories, Centers;
   MeshType::Pointer    oldCenters = MeshType::New();
   Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
-  Centers = ReadVTKfile(centersFilename.c_str());
+  
+  
+
+
+  if (!centersFilename.empty())
+  {
+    Centers = ReadVTKfile(centersFilename.c_str());
+  }
+  else if (seeds.size() > 0)
+    {
+     MeshType::PointType lpsPoint;
+     std::vector<unsigned long int> CellIDs;
+     std::vector<MeshType::PointType> seedPoints;
+     for (int i=0; i<seeds.size(); ++i)
+      {
+      // convert ras to lps
+      lpsPoint[0] = -seeds[i][0];  
+      lpsPoint[1] = -seeds[i][1];
+      lpsPoint[2] =  seeds[i][2];
+      seedPoints.push_back(lpsPoint);
+     }
+      //return the cellID of the closest trajectory
+      CellIDs = findTheClosestTrajectory(Trajectories, seedPoints);
+     
+      Centers = getTrajectories(Trajectories, CellIDs);
+
+  }
+
+  else
+    {
+    std::cerr << "No initial center was given" << std::endl;
+    return -1;
+    }
+
   CopyFieldType copyField = {0,0,1,1}; 
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
   VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
@@ -1483,7 +1558,7 @@ int main(int argc, char* argv[])
 
     //Generate seperate mesh for each cluster -> cluster + center:
     std::vector <MeshType::Pointer> cluster, center, centerWithData;
-    std::vector<long int> cellId;
+    std::vector<unsigned long int> cellId;
     std::vector <Array3DType> clusterFeatures;
     Array3DType posts;
 

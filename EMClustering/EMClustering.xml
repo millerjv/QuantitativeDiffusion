@@ -25,21 +25,30 @@
       <description>Input trajectories</description>
     </geometry>
 
-    <geometry type="fiberbundle">
-      <name>centersFilename</name>
-      <label>Centers</label>
-      <channel>input</channel>
-      <index>1</index>
-      <description>Initial cluster centerlines</description>
-    </geometry>
-
     <geometry  type="fiberbundle">
       <name>outputClustersFilename</name>
       <label>Output Clusters</label>
       <channel>output</channel>
-      <index>2</index>
+      <index>1</index>
       <description>Output of clustering which is a set of labeled trajectories</description>
     </geometry>
+
+    <geometry type="fiberbundle">
+      <name>centersFilename</name>
+      <label>Centers</label>
+      <channel>input</channel>
+      <longflag>initialCenters</longflag>
+      <description>Initial cluster centerlines</description>
+    </geometry>
+
+    <point multiple="true" coordinateSystem="ras">
+      <name>seeds</name>
+      <label>Fiducials</label>
+      <channel>input</channel>
+      <longflag>fiducials</longflag>
+      <description>input fiducials for which the closest trajectories are found and serve as initial cluster centers</description>
+    </point>
+
 
     <geometry  type="fiberbundle">
       <name>outputCentersFilename</name>
