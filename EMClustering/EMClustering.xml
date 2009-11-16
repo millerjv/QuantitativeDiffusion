@@ -49,6 +49,14 @@
       <description>input fiducials for which the closest trajectories are found and serve as initial cluster centers</description>
     </point>
 
+    <geometry  type="fiberbundle">
+      <name>initCentersFilename</name>
+      <label>Initial Selected Centers </label>
+      <channel>output</channel>
+      <longflag>outputInitCenters</longflag>
+      <description>Initial Cluster centers</description>
+      <default>initialcenters.vtp</default>
+    </geometry>
 
     <geometry  type="fiberbundle">
       <name>outputCentersFilename</name>
@@ -73,6 +81,7 @@
       <channel>output</channel>
       <longflag>outdirectory</longflag>
       <description>Directory in which to save features along the fibers</description>
+      <default>.</default>
     </directory>
 
     <string>
@@ -96,7 +105,7 @@
       <name>nIterations</name>
       <label>Iterations</label>
       <!-- <channel>input</channel> -->
-      <default>3</default>
+      <default>2</default>
       <constraints>
         <minimum>1</minimum>
         <maximum>5</maximum>

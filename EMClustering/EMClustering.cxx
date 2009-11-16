@@ -1433,8 +1433,13 @@ int main(int argc, char* argv[])
     std::cerr << "No initial center was given" << std::endl;
     return -1;
     }
+  //Write initial centers:
+  CopyFieldType copyField = {0,0,1,1};
+  copyField.ClusterLabel = 0;
 
-  CopyFieldType copyField = {0,0,1,1}; 
+  WriteVTKfile(Centers,initCentersFilename.c_str(),copyField);
+
+  copyField.ClusterLabel = 1;
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
   VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
 
@@ -1550,7 +1555,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-  //PerformQuantitativeAnalysis = 1;
+  PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh: 
@@ -1564,41 +1569,50 @@ int main(int argc, char* argv[])
 
     for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
+
       //Seperate cluster k'th
       cluster.push_back(getCluster(Trajectories,k));
-      //seperate center  k'th
+     
+	  //seperate center  k'th
       cellId.clear(); cellId.push_back(k);
       center.push_back(getTrajectories(oldCenters,cellId));
       //seperate posterior probabilities
       posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
-      //write out the posteriors for each cluster
-      
-      char fileName1[250];
-      sprintf(fileName1, "%s/%s_posterior%d.csv",OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
-      WriteCSVfile(fileName1, posts[k]);   
 
-      //Compute the feature matrices and write them out:
+	  //Compute the feature matrices
       clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
-      writeCSVfilesOfFeatures(clusterFeatures[k], k , FilePrefix, OutputDirectory);
+      if (clusterFeatures[k].at(0).rows()>0)
+	  {
+	  //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
+		ArrayType meanFA;
+		meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TO Do: compute the weighted average
 
-      //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
-      ArrayType meanFA;
-      meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TO Do: compute the weighted average
+		//Add point data to the cell with the cell ID of cellId in the oldCenters mesh:
+		AddPointScalarToACell(oldCenters,k, meanFA );//oldCenters gets updated.
+	  }
+		centerWithData.push_back(getTrajectories(oldCenters,cellId));
 
-      //Add point data to the cell with the cell ID of cellId in the oldCenters mesh:
-      AddPointScalarToACell(oldCenters,k, meanFA );                        //oldCenters gets updated.
-      centerWithData.push_back(getTrajectories(oldCenters,cellId));
+	  //write out the posteriors for each cluster
+      
+	  if (posts[k].rows()>0)
+	  {
+		char fileName1[250];
+		sprintf(fileName1, "%s/%s_posterior%d.csv",OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
+		WriteCSVfile(fileName1, posts[k]);   
 
-      // Write individual files for each cluster and its center.
+		writeCSVfilesOfFeatures(clusterFeatures[k], k , FilePrefix, OutputDirectory);
 
-      char centerName[250],clusterName[250];
-      sprintf(centerName, "%s/center%d.vtp", OutputDirectory.c_str(),k+1);
-      copyField.FA = 1; copyField.Tensor = 0;
-      WriteVTKfile(centerWithData[k],centerName,copyField);
+		// Write individual files for each cluster and its center.
 
-      sprintf(clusterName, "%s/cluster%d.vtp", OutputDirectory.c_str(),k+1);
-      copyField.FA = 0; copyField.Tensor = 1;
-      WriteVTKfile(cluster[k], clusterName,copyField); 
+		char centerName[250],clusterName[250];
+		sprintf(centerName, "%s/center%d.vtp", OutputDirectory.c_str(),k+1);
+		copyField.FA = 1; copyField.Tensor = 0;
+		WriteVTKfile(centerWithData[k],centerName,copyField);
+
+		sprintf(clusterName, "%s/cluster%d.vtp", OutputDirectory.c_str(),k+1);
+		copyField.FA = 0; copyField.Tensor = 1;
+		WriteVTKfile(cluster[k], clusterName,copyField);
+	  }
 
     }
 
