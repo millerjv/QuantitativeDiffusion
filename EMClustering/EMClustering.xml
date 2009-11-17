@@ -35,7 +35,7 @@
 
     <geometry type="fiberbundle">
       <name>centersFilename</name>
-      <label>Centers</label>
+      <label>Initial Centers</label>
       <channel>input</channel>
       <longflag>initialCenters</longflag>
       <description>Initial cluster centerlines</description>
@@ -43,24 +43,24 @@
 
     <point multiple="true" coordinateSystem="ras">
       <name>seeds</name>
-      <label>Fiducials</label>
+      <label>Fiducials to Pick Initial Centers</label>
       <channel>input</channel>
       <longflag>fiducials</longflag>
-      <description>input fiducials for which the closest trajectories are found and serve as initial cluster centers</description>
+      <description>Input fiducials for which the closest trajectories are found and serve as initial cluster centers </description>
     </point>
 
     <geometry  type="fiberbundle">
       <name>initCentersFilename</name>
-      <label>Initial Selected Centers </label>
+      <label>Output Initial Centers </label>
       <channel>output</channel>
       <longflag>outputInitCenters</longflag>
-      <description>Initial Cluster centers</description>
+      <description>Returns the initial cluster centers that have been specified by the fiducials </description>
       <default>initialcenters.vtp</default>
     </geometry>
 
     <geometry  type="fiberbundle">
       <name>outputCentersFilename</name>
-      <label>Output Centers</label>
+      <label>Output Final Centers</label>
       <channel>output</channel>
       <longflag>outputCenters</longflag>
       <description>Cluster centers</description>
@@ -105,7 +105,7 @@
       <name>nIterations</name>
       <label>Iterations</label>
       <!-- <channel>input</channel> -->
-      <default>2</default>
+      <default>3</default>
       <constraints>
         <minimum>1</minimum>
         <maximum>5</maximum>
