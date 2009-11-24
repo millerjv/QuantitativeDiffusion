@@ -3,12 +3,14 @@
   <category>Tractography</category>
   <title>EM Clustering</title>
   <description>
-
+    This module clusters a set of input trajectories into a number of bundles, generates arc length parameterization by establishing
+    the point correspondences and reports diffusion parameters along the bundles. The module requires specification of seed trajectories
+    (or initial centerlines) as representatives of the desired bundles. If a fiducial list is passed to the algorithm, the closest trajectories
+    are taken as the seed trajectories. To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/
   </description>
   <version>1.0</version>
   <documentation-url>
-    For more information visit: http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.5
-    To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/
+    http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.5
   </documentation-url>
   <license></license>
   <contributor>Mahnaz Maddah, Ph. D.</contributor>
@@ -38,7 +40,7 @@
       <label>Initial Centers</label>
       <channel>input</channel>
       <longflag>initialCenters</longflag>
-      <description>Initial cluster centerlines</description>
+      <description>Initial cluster centerlines.</description>
     </geometry>
 
     <point multiple="true" coordinateSystem="ras">
@@ -46,7 +48,7 @@
       <label>Fiducials to Pick Initial Centers</label>
       <channel>input</channel>
       <longflag>fiducials</longflag>
-      <description>Input fiducials for which the closest trajectories are found and serve as initial cluster centers </description>
+      <description>Input fiducials for which the closest trajectories in the input are found and serve as initial cluster centers. If initial centers are provided above, the fiducial list will be ignored. </description>
     </point>
 
     <geometry  type="fiberbundle">
@@ -127,7 +129,9 @@
       </constraints>
       <flag>l</flag>
       <longflag>min_like</longflag>
-      <description> This parameter controls the homogeneity of trajectories in a cluster. It defines the minimum likelihood threshold on cluster probability membership. </description>
+      <description> This parameter controls the homogeneity of trajectories in a cluster. 
+      It defines the minimum likelihood threshold on cluster probability membership. 
+      Increase the number for more compact bundles (Range 1-5) </description>
     </float>
     <!--<boolean>
       <name>havePrior</name>
