@@ -71,7 +71,7 @@
 
     <boolean>
       <name>PerformQuantitativeAnalysis</name>
-      <label>Perform tract-oriented quantitative analysis</label>
+      <label>Perform Quantitative Analysis</label>
       <longflag>quant</longflag>
       <description>Perform tract-oriented quantitative analysis?</description>
       <default>true</default>
@@ -103,24 +103,9 @@
     <label>Clustering parameters</label>
     <description>Parameters to control clustering method</description>
 
-    <integer>
-      <name>nIterations</name>
-      <label>Iterations</label>
-      <!-- <channel>input</channel> -->
-      <default>3</default>
-      <constraints>
-        <minimum>1</minimum>
-        <maximum>5</maximum>
-        <step>1</step>
-      </constraints>
-      <flag>i</flag>
-      <longflag>n_iter</longflag>
-      <description>Number of EM iterations</description>
-    </integer>
-
     <float>
       <name>MinLikelihoodThr</name>
-      <label>Compactness of fiber bundles</label>
+      <label>Compactness of Fiber Bundles</label>
       <default>3</default>
       <constraints>
         <minimum>1</minimum>
@@ -155,6 +140,17 @@
       <default>1.5,1.5,1.5</default>
       <description>Space resolution for Distance Map calculation</description>
     </double-vector>
+
+    <integer>
+      <name>maxNumberOfIterations</name>
+      <label>Maximum Number of Iterations</label>
+      <!-- <channel>input</channel> -->
+      <default>5</default>
+      <flag>i</flag>
+      <longflag>maxIter</longflag>
+      <description>Maximum Number of EM iterations</description>
+    </integer>
+
 
     <!--
     <float>

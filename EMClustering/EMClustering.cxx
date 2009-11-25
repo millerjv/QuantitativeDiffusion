@@ -498,12 +498,19 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
   MeshType::Pointer RefinedMesh = MeshType::New();
   unsigned long pitNew = 0;
   unsigned long citNew = 0;
-  ArrayType arow;
+  ArrayType arow, peaks;
   Array2DType newDissimilarityMatrix, newLikelihood, newPrior;
 
   newDissimilarityMatrix.SetSize(DissimilarityMatrix.rows(),DissimilarityMatrix.cols());
   newLikelihood.SetSize(Likelihood.rows(),Likelihood.cols());
   newPrior.SetSize(Prior.rows(),Prior.cols());
+  //Store the peak value of likelihood function for each cluster
+  peaks.SetSize(Likelihood.cols());
+  for (unsigned long int cc=0; cc<Likelihood.cols(); ++cc)
+  {
+	  peaks[cc] = Likelihood.get_column(cc).max_value();
+	  //std::cout << peaks[cc] << std::endl;
+  }
 
   for (unsigned long int n=0; n<Likelihood.rows(); ++n) //go over the trajectories
   {
@@ -511,8 +518,8 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
     //To Do: set the threshold differently when havePrior = 1
     bool copycell = 0;
     for (unsigned int m=0; m < arow.Size(); ++m)  //go over the clusters
-      if (arow(m)> MyMinLikelihoodThr(m)) 
-      { //add "or before the peak" 
+    if (arow(m)> MyMinLikelihoodThr(m)) 
+      { // To Do: || arow(m)<peaks(m)" 
         copycell = 1; 
         break;
       }
@@ -875,18 +882,20 @@ VariableType diffCurve(CurveType MyCurve1, CurveType MyCurve2) //simplest implem
   return dist/MyCurve2.rows();
 }
 
-VariableType diffMeshes(MeshType* mesh1, MeshType* mesh2)
+ArrayType diffMeshes(const MeshType* mesh1, const MeshType* mesh2)
 {
-  VariableType diff = 100000;
+  ArrayType dist;
+  
   unsigned int NumberOfCells1 = mesh1->GetNumberOfCells();
   unsigned int NumberOfCells2 = mesh2->GetNumberOfCells();
+  dist.SetSize(NumberOfCells1); dist.fill(10000);
   if (NumberOfCells1 != NumberOfCells2)
   {
     std::cout << "Number of cells don't match between the given meshes" <<std::endl;
   }
   else
   {
-    diff = 0;
+    dist.fill(0);
     long unsigned int newpid = 0;
     for (unsigned int k=0; k<NumberOfCells1; ++k)
     {
@@ -918,11 +927,11 @@ VariableType diffMeshes(MeshType* mesh1, MeshType* mesh2)
       }
 
 
-      VariableType dist = diffCurve(MyCurve1, MyCurve2);
-      diff+=dist;
+      dist[k] = diffCurve(MyCurve1, MyCurve2);
+	  
     }
   }
-  return diff/NumberOfCells1;
+  return dist;
 
 }
 
@@ -1475,8 +1484,8 @@ int main(int argc, char* argv[])
   ///// START /////
 
   bool debug = 0;
-  VariableType dd;
-  for (int i=0; i<nIterations; ++i)
+  ArrayType dd;
+  for (int i=0; i<maxNumberOfIterations; ++i)
   {
     std::cout<< "Iteration  " << i+1 << std::endl;
     DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace);
@@ -1541,9 +1550,9 @@ int main(int argc, char* argv[])
     oldCenters = Centers;
     Centers = SmoothedCenters;
     dd = diffMeshes(oldCenters, Centers);
-    std::cout<< dd <<std::endl;
+	std::cout<< dd.max_value() <<std::endl;
     Trajectories = RefinedTrajectories;
-    if (dd<3 && i>1) break;
+    if (dd.max_value()<5 && i>1) break;
   }
 
   AssignClusterLabels(Trajectories,Posterior);
