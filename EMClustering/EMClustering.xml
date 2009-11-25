@@ -148,7 +148,7 @@
       <default>5</default>
       <flag>i</flag>
       <longflag>maxIter</longflag>
-      <description>Maximum Number of EM iterations</description>
+      <description>Maximum number of EM iterations</description>
     </integer>
 
 
