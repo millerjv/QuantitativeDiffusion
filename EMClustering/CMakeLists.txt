@@ -33,10 +33,10 @@ ENDIF(VTK_FOUND)
 
 IF (GenerateCLP_FOUND)
   GenerateCLP(EMClustering.cxx EMClustering.xml)
-  ADD_EXECUTABLE(EMCluster EMClustering.cxx)
-  slicer3_set_plugins_output_path(EMCluster)
+  ADD_EXECUTABLE(EMClustering EMClustering.cxx)
+  slicer3_set_plugins_output_path(EMClustering)
 ENDIF (GenerateCLP_FOUND)
 
-TARGET_LINK_LIBRARIES( EMCluster ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering)
+TARGET_LINK_LIBRARIES( EMClustering ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering)
 
-slicer3_install_plugins(EMCluster)
+slicer3_install_plugins(EMClustering)
