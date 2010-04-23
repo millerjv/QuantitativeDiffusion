@@ -7,10 +7,13 @@
     the point correspondences and reports diffusion parameters along the bundles. The module requires specification of seed trajectories
     (or initial centerlines) as representatives of the desired bundles. If a fiducial list is passed to the algorithm, the closest trajectories
     are taken as the seed trajectories. To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/
+    If you use this module in your research, please make sure that you reference this article:
+    Mahnaz Maddah, W. Eric L. Grimson, Simon K. Warfield, William M. Wells, "A Unified Framework for Clustering and Quantitative Analysis of White Matter Fiber Tracts",
+    Medical Image Analysis, vol 12, issue 2, pp. 191-202, 2008.
   </description>
   <version>1.0</version>
   <documentation-url>
-    http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.5
+    http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.6
   </documentation-url>
   <license></license>
   <contributor>Mahnaz Maddah, Ph. D.</contributor>
@@ -68,6 +71,16 @@
       <description>Cluster centers</description>
       <default>centers.vtp</default>
     </geometry>
+<!--
+    <measurement>
+      <name>measurement1FileName</name>
+      <label>FA Measurement</label>
+      <channel>output</channel>
+      <longflag>outputFA</longflag>
+      <description>Mean FA along the bundle</description>
+      <default>measurement.mcsv</default>
+    </measurement>
+-->
 
     <boolean>
       <name>PerformQuantitativeAnalysis</name>
@@ -137,7 +150,7 @@
       <label>Space resolution</label>
       <flag>s</flag>
       <longflag>res</longflag>
-      <default>1.5,1.5,1.5</default>
+      <default>2.5,2.5,2.5</default>
       <description>Space resolution for Distance Map calculation</description>
     </double-vector>
 

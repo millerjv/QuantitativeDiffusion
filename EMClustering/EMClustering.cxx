@@ -36,6 +36,7 @@
 #include <vtkDataSetAttributes.h> 
 #include <vtkPointData.h> 
 
+
 const unsigned int PointDimension = 3;
 const unsigned int MaxTopologicalDimension = 1;    
 typedef double     CoordinateType;
@@ -279,7 +280,7 @@ MeshType::Pointer ReadVTKfile(std::string filename)
   return mesh;
 }
 
-void WriteCSVfile(std::string fileName, Array2DType mat)
+void WriteCSVfile(std::string fileName, const Array2DType &mat)
 {
   ofstream myfile;
   std::cout<< "Writing out "<< fileName.c_str() << "..." << std::endl;
@@ -299,6 +300,23 @@ void WriteCSVfile(std::string fileName, Array2DType mat)
       myfile << std::endl;
     }
   }
+  myfile.close();
+}
+
+void writeMCSVfile(std::string fileName, const ArrayType &y, const ArrayType &yerr, const std::vector<std::string> &labels )
+{
+  ofstream myfile;
+  std::cout<< "Writing out "<< fileName.c_str() << "..." << std::endl;
+  myfile.open (fileName.c_str());
+  unsigned int n = y.size();
+  myfile << labels.at(0) << "," << labels.at(1) << "," << labels.at(2) << std::endl;
+  if (n>1)
+  {
+   for (unsigned long int r=0; r<n; r++)
+   {
+     myfile << r << "," << y(r) << "," << yerr(r) <<std::endl;
+   }
+  }  
   myfile.close();
 }
 
@@ -1251,7 +1269,7 @@ void  fillPriorInfo(Array2DType &Prior, MeshType* Trajectories)
   }
 }
 
-ArrayType meanMat(Array2DType X, int nanVal=0)                          
+ArrayType meanMat(const Array2DType &X, int nanVal=0)                          
 //take the column-wise mean of the matrix X, ignoring the zero elements.
 { 
   ArrayType mX;
@@ -1295,6 +1313,65 @@ ArrayType meanMat(Array2DType X, int nanVal=0)
 
   return mX;
 } 
+
+ArrayType stdMat(const Array2DType &X, int nanVal=0)                          
+//take the column-wise std of the matrix X, ignoring the nonVal elements.
+{ 
+  ArrayType mX;
+  mX.SetSize(X.cols());
+  ArrayType aCol;
+  for (unsigned int c = 0; c<X.cols(); c++)
+  {
+
+    aCol = X.get_column(c);
+
+    // if there is no NAN in the colume:   (here we assume that the nanVal is 0 or a negative number.
+    if (aCol.min_value() != nanVal)
+    {
+		mX(c) = (aCol - aCol.mean()).rms();
+    }
+    else
+    {
+      double s = 0;
+      unsigned int n = 0;
+      for (unsigned int i =0; i<aCol.Size(); i++)
+      {
+        if (aCol(i)!= nanVal)
+        {
+          s+=aCol(i);
+          n++;
+        }
+      }
+      if (n!=0)
+      {
+         double meanVal =  s/n;
+		 double ms = 0;
+		 for (unsigned int i =0; i<aCol.Size(); i++)
+			{
+			if (aCol(i)!= nanVal)
+			{
+				ms+=(aCol(i)-meanVal)*(aCol(i)-meanVal);
+
+			}
+			}			
+		 
+
+		mX(c) = sqrt(ms/n);
+
+      } 
+      else
+      {
+        //
+        mX(c)=0;
+        std::cout << "NaN column at " << c << "!" <<std::endl;
+      } 
+    }
+
+  }
+
+  return mX;
+} 
+
 
 ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)                          
 //take the column-wise 'weighted mean' of the matrix X, ignoring the zero elements.
@@ -1401,6 +1478,9 @@ std::vector<unsigned long int> findTheClosestTrajectory(MeshType* mesh, std::vec
 }
 
 
+
+
+
 int main(int argc, char* argv[])
 {
 
@@ -1410,9 +1490,6 @@ int main(int argc, char* argv[])
   MeshType::Pointer    oldCenters = MeshType::New();
   Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
   
-  
-
-
   if (!centersFilename.empty())
   {
     Centers = ReadVTKfile(centersFilename.c_str());
@@ -1451,13 +1528,6 @@ int main(int argc, char* argv[])
   copyField.ClusterLabel = 1;
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
   VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
-
-
-  /*std::vector<long int> CellIDs;
-  CellIDs.push_back(5); 
-  Centers = getTrajectories(Trajectories, CellIDs);
-  WriteVTKfile(Centers, "initCenter.vtk",copyField);
-  */
 
   ArrayType alpha, beta, MyMinLikelihoodThr;
   Array2DType DissimilarityMatrix, Likelihood, Prior, Posterior; //NxK 
@@ -1549,10 +1619,13 @@ int main(int argc, char* argv[])
 
     oldCenters = Centers;
     Centers = SmoothedCenters;
-    dd = diffMeshes(oldCenters, Centers);
-	std::cout<< dd.max_value() <<std::endl;
     Trajectories = RefinedTrajectories;
-    if (dd.max_value()<5 && i>1) break;
+    if (i>1)
+    {
+    dd = diffMeshes(oldCenters, Centers);
+	  //std::cout<< "Difference between new centers and old ones is "<< dd.max_value() <<std::endl;
+    if (dd.max_value()<5) break;
+    }
   }
 
   AssignClusterLabels(Trajectories,Posterior);
@@ -1564,7 +1637,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-  //PerformQuantitativeAnalysis = 1;
+  PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh: 
@@ -1585,18 +1658,29 @@ int main(int argc, char* argv[])
 	  //seperate center  k'th
       cellId.clear(); cellId.push_back(k);
       center.push_back(getTrajectories(oldCenters,cellId));
-      //seperate posterior probabilities
+
+	  //seperate posterior probabilities
       posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
 
 	  //Compute the feature matrices
       clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
-      if (clusterFeatures[k].at(0).rows()>0)
+      if (clusterFeatures[k].at(0).rows()>0) //not empty
 	  {
 	  //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
-		ArrayType meanFA;
+		ArrayType meanFA; //, stdFA;
 		meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TO Do: compute the weighted average
+		///////////////Returning the 2D plot is disabled for now -- generates to error/only depends on the latest SLICER ////
+    /*stdFA = stdMat(clusterFeatures[k].at(0),-1);
+		std::vector<std::string> labels;
+		labels.push_back("Arc Length");
+		labels.push_back("Mean FA");
+		labels.push_back("Standard Deviation");
+		
+		writeMCSVfile(measurement1FileName, meanFA, stdFA, labels);            // To Do: Specify different filenames 
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
-		//Add point data to the cell with the cell ID of cellId in the oldCenters mesh:
+		//Add point data to the cell with the cell ID of cellId in the oldCenters mesh to get visualized with the 
+		// mean FA after loading in Slicer:
 		AddPointScalarToACell(oldCenters,k, meanFA );//oldCenters gets updated.
 	  }
 		centerWithData.push_back(getTrajectories(oldCenters,cellId));
