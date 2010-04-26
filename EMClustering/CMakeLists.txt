@@ -39,4 +39,7 @@ ENDIF (GenerateCLP_FOUND)
 
 TARGET_LINK_LIBRARIES( EMCluster ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering)
 
+set(Slicer3_EXE ${Slicer3_BINARY_DIR}/Slicer3)
+add_test(EMClusteringTest ${Slicer3_EXE} --launch EMCluster ${Clustering_SOURCE_DIR}/Data/trajectories_test2.vtp ${Clustering_BINARY_DIR}/Temporary/OutputClusters.vtp --initialCenters ${Clustering_SOURCE_DIR}/Data/initCenters_test2.vtp)
+
 slicer3_install_plugins(EMCluster)
