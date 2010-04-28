@@ -3,11 +3,9 @@
   <category>Tractography</category>
   <title>EM Clustering</title>
   <description>
-    This module clusters a set of input trajectories into a number of bundles, generates arc length parameterization by establishing
-    the point correspondences and reports diffusion parameters along the bundles. The module requires specification of seed trajectories
-    (or initial centerlines) as representatives of the desired bundles. If a fiducial list is passed to the algorithm, the closest trajectories
-    are taken as the seed trajectories. To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/
-    If you use this module in your research, please make sure that you reference this article:
+    This module clusters a set of input trajectories into a number of bundles, generates arc length parameterization by establishing the point correspondences and reports diffusion parameters along the bundles. The module requires specification of seed trajectories(or initial centerlines) as representatives of the desired bundles. If a fiducial list is passed to the algorithm, the closest trajectories are taken as the seed trajectories.
+    To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/
+  If you use this module in your research, please make sure that you reference this article:
     Mahnaz Maddah, W. Eric L. Grimson, Simon K. Warfield, William M. Wells, "A Unified Framework for Clustering and Quantitative Analysis of White Matter Fiber Tracts",
     Medical Image Analysis, vol 12, issue 2, pp. 191-202, 2008.
   </description>
@@ -16,7 +14,7 @@
     http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.6
   </documentation-url>
   <license></license>
-  <contributor>Mahnaz Maddah, Ph. D.</contributor>
+  <contributor>This module was developed by Mahnaz Maddah with help from Jim Miller, and was supported by NAC.</contributor>
 
   <parameters>
     <label>IO</label>
