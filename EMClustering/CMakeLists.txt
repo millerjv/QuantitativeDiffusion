@@ -39,11 +39,11 @@ set ( ${CLP}_SOURCE ${CLP}.cxx)
 
 GenerateCLP(${CLP}.cxx ${CLP}.xml)
 ADD_EXECUTABLE(${CLP} ${CLP}.cxx)
-TARGET_LINK_LIBRARIES( ${CLP} ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering)
+TARGET_LINK_LIBRARIES( ${CLP} ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 add_library(${CLP}Lib SHARED ${${CLP}_SOURCE})
 set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
-target_link_libraries (${CLP}Lib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering)
+target_link_libraries (${CLP}Lib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 slicer3_set_plugins_output_path(${CLP})
  
@@ -63,4 +63,13 @@ ${Clustering_BINARY_DIR}/Testing/Temporary/OutputClusters.vtp
 --outdirectory ${Clustering_BINARY_DIR}/Testing/Temporary)
 
 
-slicer3_install_plugins(EMClustering)
+#slicer3_install_plugins(EMClustering)
+
+# configure the resources for the atlas
+set(ATLAS_PARENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
+file(GLOB ATLASFILES RELATIVE ${ATLAS_PARENT_DIR} "Atlas/*")
+foreach(file ${ATLASFILES} )
+    configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/${file} ${CMAKE_BINARY_DIR}/${Slicer3_INSTALL_PLUGINS_LIB_DIR}/${PROJECT_NAME}/${file} COPYONLY)
+endforeach(file)
+
+install(FILES ${ATLASFILES} DESTINATION ${Slicer3_INSTALL_PLUGINS_LIB_DIR}/${PROJECT_NAME}/Atlas)

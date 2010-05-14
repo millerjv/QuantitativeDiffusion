@@ -31,16 +31,73 @@
       <index>1</index>
       <description>Output of clustering which is a set of labeled trajectories</description>
     </geometry>
+    
+    <boolean>
+      <name>useAtlas</name>
+      <label>Use an atlas?</label>
+      <description>Should an atlas be used in clustering</description>
+      <longflag>use_atlas</longflag>
+      <default>true</default>
+    </boolean> 
+
+    <directory>
+      <name>AtlasDir</name>
+      <flag>a</flag>
+      <longflag>atlas</longflag>
+      <label>Atlas</label>
+      <description>Use an atlas to seed the clustering. Atlases are specified as a directory containing the atlas description: an FA map called atlasFAMap.nhdr and set of initial centers representing the structures to cluster call atlasCenters.vtp.</description>
+      <default>../Clustering/Atlas</default>
+    </directory>
+    
+    <image>
+      <name>subjectFAFilename</name>
+      <label>Subject's FA Volume</label>
+      <channel>input</channel>
+      <longflag>FA</longflag>
+      <description>Subject's FA volume needs to be given if using an atlas.</description>
+    </image>
+
+    <boolean>
+      <name>genu</name>
+      <label>genu</label>
+      <longflag>genu</longflag>
+      <description>Genu bundle to be clustered?</description>
+      <default>true</default>
+    </boolean> 
+
+    <boolean>
+      <name>splenium</name>
+      <label>splenium</label>
+      <longflag>splenium</longflag>
+      <description>Splenium bundle to be clustered?</description>
+      <default>true</default>
+    </boolean> 
+
+    <boolean>
+      <name>cingulumR</name>
+      <label>cingulum(R)</label>
+      <longflag>cingulumR</longflag>
+      <description>Right cingulum bundle to be clustered?</description>
+      <default>false</default>
+    </boolean> 
+
+    <boolean>
+      <name>cingulumL</name>
+      <label>cingulum(L)</label>
+      <longflag>cingulumL</longflag>
+      <description>Left cingulum bundle to be clustered?</description>
+      <default>false</default>
+    </boolean> 
 
     <geometry type="fiberbundle">
       <name>centersFilename</name>
       <label>Initial Centers</label>
       <channel>input</channel>
       <longflag>initialCenters</longflag>
-      <description>Initial cluster centerlines.</description>
+      <description>Initial cluster centerlines. Leave it empty if you are using an atlas. </description>
     </geometry>
 
-    <point multiple="true" coordinateSystem="ras">
+    <!--<point multiple="true" coordinateSystem="ras">
       <name>seeds</name>
       <label>Fiducials to Pick Initial Centers</label>
       <channel>input</channel>
@@ -56,10 +113,10 @@
       <description>Returns the initial cluster centers that have been specified by the fiducials </description>
       <default>initialcenters.vtp</default>
     </geometry>
-
+    -->
     <geometry  type="fiberbundle">
       <name>outputCentersFilename</name>
-      <label>Output Final Centers</label>
+      <label>Output Centers</label>
       <channel>output</channel>
       <longflag>outputCenters</longflag>
       <description>Cluster centers</description>
@@ -123,14 +180,6 @@
       <longflag>min_like</longflag>
       <description> This parameter controls the homogeneity of trajectories in a cluster. It defines the minimum likelihood threshold on cluster probability membership. Increase the number for more compact bundles (Range 1-5) </description>
     </float>
-    <!--<boolean>
-      <name>havePrior</name>
-      <label>Anotomical Information</label>
-      <description>Should an atlas be used in clustering</description>
-      <longflag>use_atlas</longflag>
-      <default>false</default>
-    </boolean> -->
-
   </parameters>
 
   <parameters advanced ="true">
@@ -155,6 +204,16 @@
       <longflag>maxIter</longflag>
       <description>Maximum number of EM iterations</description>
     </integer>
+
+    <geometry  type="fiberbundle">
+      <name>transformedCentersFilename</name>
+      <label>Transformed Initial Centers From The Atlas</label>
+      <channel>output</channel>
+      <longflag>transInitCenters</longflag>
+      <description>Returns the transforme initial cluster centers if using an atlas </description>
+      <default>transformedCenters.vtp</default>
+    </geometry>
+
 
 
     <!--

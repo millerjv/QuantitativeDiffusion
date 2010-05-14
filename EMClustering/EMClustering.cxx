@@ -2,6 +2,7 @@
 #pragma warning ( disable : 4786 )
 #endif
 //// SLICER VERSION
+#include "itksys/SystemTools.hxx"
 #include "itkMesh.h"
 #include "itkLineCell.h"
 #include "itkPolylineCell.h"
@@ -12,7 +13,7 @@
 #include "itkOrientedImage.h"
 #include "itkImage.h"
 #include "itkImageRegionConstIterator.h"
-#include <itkMatrix.h> 
+#include <itkMatrix.h>
 #include "itkLinearInterpolateImageFunction.h"
 #include "itkVectorLinearInterpolateImageFunction.h"
 #include "itkImageRegionIteratorWithIndex.h"
@@ -36,6 +37,18 @@
 #include <vtkDataSetAttributes.h> 
 #include <vtkPointData.h> 
 
+#include "itkAffineTransform.h"
+#include "itkImageRegistrationMethod.h"
+#include "itkMeanSquaresImageToImageMetric.h"
+#include "itkLinearInterpolateImageFunction.h"
+#include "itkRegularStepGradientDescentOptimizer.h"
+#include "itkCenteredTransformInitializer.h"
+#include "itkResampleImageFilter.h"
+#include "itkCastImageFilter.h"
+#include "itkSubtractImageFilter.h"
+#include "itkRescaleIntensityImageFilter.h"
+
+#include "itkCommand.h"
 
 const unsigned int PointDimension = 3;
 const unsigned int MaxTopologicalDimension = 1;    
@@ -69,17 +82,68 @@ bool                  ClusterLabel;
 typedef double InterpolationWeightType;
 typedef itk::DefaultStaticMeshTraits< 
 PixelType, PointDimension, MaxTopologicalDimension,
-CoordinateType, InterpolationWeightType, CellDataType >    MeshTraits;
-typedef itk::Mesh< PixelType, PointDimension, MeshTraits > MeshType;
-typedef MeshType::CellType                                 CellType;
-typedef itk::PolylineCell< CellType >                      PolylineType;
-typedef CellType::CellAutoPointer                          CellAutoPointer;
-typedef itk::DiffusionTensor3D< CoordinateType >           TensorPixelType;
-typedef TensorPixelType::RealValueType                     RealValueType;
-typedef TensorPixelType::EigenValuesArrayType              EigenValuesArrayType;
-typedef itk::OrientedImage<CoordinateType,PointDimension > ImageType;
-typedef itk::Array2D<CoordinateType>                       CurveType;  
-typedef itk::Array<CoordinateType>                         CurvePointType;
+CoordinateType, InterpolationWeightType, CellDataType >     MeshTraits;
+typedef itk::Mesh< PixelType, PointDimension, MeshTraits >  MeshType;
+typedef MeshType::CellType                                  CellType;
+typedef itk::PolylineCell< CellType >                       PolylineType;
+typedef CellType::CellAutoPointer                           CellAutoPointer;
+typedef itk::DiffusionTensor3D< CoordinateType >            TensorPixelType;
+typedef TensorPixelType::RealValueType                      RealValueType;
+typedef TensorPixelType::EigenValuesArrayType               EigenValuesArrayType;
+typedef itk::OrientedImage<CoordinateType,PointDimension >  ImageType;
+typedef itk::Array2D<CoordinateType>                        CurveType;  
+typedef itk::Array<CoordinateType>                          CurvePointType;
+typedef itk::AffineTransform<CoordinateType,PointDimension>            TransformType;
+typedef itk::RegularStepGradientDescentOptimizer                       OptimizerType;
+typedef itk::MeanSquaresImageToImageMetric<ImageType,ImageType>        MetricType;
+typedef itk::LinearInterpolateImageFunction<ImageType,CoordinateType>  InterpolatorType;
+typedef itk::ImageRegistrationMethod<ImageType,ImageType >             RegistrationType;
+
+
+class CommandIterationUpdate : public itk::Command 
+{
+public:
+  typedef  CommandIterationUpdate   Self;
+  typedef  itk::Command             Superclass;
+  typedef itk::SmartPointer<Self>  Pointer;
+  itkNewMacro( Self );
+protected:
+  CommandIterationUpdate() {};
+public:
+  typedef itk::RegularStepGradientDescentOptimizer     OptimizerType;
+  typedef   const OptimizerType   *    OptimizerPointer;
+
+  void Execute(itk::Object *caller, const itk::EventObject & event)
+  {
+    Execute( (const itk::Object *)caller, event);
+  }
+
+  void Execute(const itk::Object * object, const itk::EventObject & event)
+  {
+    OptimizerPointer optimizer = 
+                      dynamic_cast< OptimizerPointer >( object );
+    if( ! itk::IterationEvent().CheckEvent( &event ) )
+      {
+      return;
+      }
+      std::cout << optimizer->GetCurrentIteration() << "   ";
+      std::cout << optimizer->GetValue() << "   ";
+      std::cout << optimizer->GetCurrentPosition();
+     
+      /* Print the angle for the trace plot
+      vnl_matrix<double> p(2, 2);
+      p[0][0] = (double) optimizer->GetCurrentPosition()[0];
+      p[0][1] = (double) optimizer->GetCurrentPosition()[1];
+      p[1][0] = (double) optimizer->GetCurrentPosition()[2];
+      p[1][1] = (double) optimizer->GetCurrentPosition()[3];
+      vnl_svd<double> svd(p);
+      vnl_matrix<double> r(2, 2);
+      r = svd.U() * vnl_transpose(svd.V());
+      double angle = asin(r[1][0]);
+      std::cout << " AffineAngle: " << angle * 45.0 / atan(1.0) << std::endl;
+      */
+    }
+};
 
 void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldType copyField)
 
@@ -1480,21 +1544,183 @@ std::vector<unsigned long int> findTheClosestTrajectory(MeshType* mesh, std::vec
 
 
 
+TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* atlasFAVolume)
+{
+  MetricType::Pointer         metric        = MetricType::New();
+  OptimizerType::Pointer      optimizer     = OptimizerType::New();
+  InterpolatorType::Pointer   interpolator  = InterpolatorType::New();
+  RegistrationType::Pointer   registration  = RegistrationType::New();
+
+  registration->SetMetric(        metric        );
+  registration->SetOptimizer(     optimizer     );
+  registration->SetInterpolator(  interpolator  );
+  
+  TransformType::Pointer  transform = TransformType::New();
+  registration->SetTransform( transform );
+
+  registration->SetFixedImage(caseFAVolume );
+  registration->SetMovingImage(atlasFAVolume);
+  
+  registration->SetFixedImageRegion( caseFAVolume->GetBufferedRegion() );
+
+  typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType >  TransformInitializerType;
+  TransformInitializerType::Pointer initializer = TransformInitializerType::New();
+  initializer->SetTransform(   transform );
+  initializer->SetFixedImage( caseFAVolume );
+  initializer->SetMovingImage( atlasFAVolume );
+  initializer->MomentsOn();
+  initializer->InitializeTransform();
+  registration->SetInitialTransformParameters( transform->GetParameters() );
+  double translationScale = 1.0 / 1000.0;
+  typedef OptimizerType::ScalesType       OptimizerScalesType;
+  OptimizerScalesType optimizerScales( transform->GetNumberOfParameters() );
+
+  optimizerScales[0] =  1.0;
+  optimizerScales[1] =  1.0;
+  optimizerScales[2] =  1.0;
+  optimizerScales[3] =  1.0;
+  optimizerScales[4] =  1.0;
+  optimizerScales[5] =  1.0;
+  optimizerScales[6] =  1.0;
+  optimizerScales[7] =  1.0;
+  optimizerScales[8] =  1.0;
+  optimizerScales[9]  =  translationScale;
+  optimizerScales[10] =  translationScale;
+  optimizerScales[11] =  translationScale;
+
+  optimizer->SetScales( optimizerScales );
+  unsigned int maxNumberOfIterations = 10;
+  optimizer->SetMaximumStepLength( 0.1 ); 
+  optimizer->SetMinimumStepLength( 0.001 );
+  optimizer->SetNumberOfIterations( maxNumberOfIterations );
+  optimizer->MinimizeOn();
+
+  //CommandIterationUpdate::Pointer observer = CommandIterationUpdate::New();
+  //optimizer->AddObserver( itk::IterationEvent(), observer );
+
+  try 
+    { 
+    registration->StartRegistration(); 
+    } 
+  catch( itk::ExceptionObject & err ) 
+    { 
+    std::cerr << "ExceptionObject caught !" << std::endl; 
+    std::cerr << err << std::endl; 
+    //return EXIT_FAILURE;
+    }
+  OptimizerType::ParametersType finalParameters = registration->GetLastTransformParameters();
+
+  TransformType::Pointer finalTransform = TransformType::New();
+
+  finalTransform->SetCenter( transform->GetCenter() );
+  finalTransform->SetParameters( finalParameters );
+  
+  return finalTransform;
+}
+MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transform, std::vector<unsigned long int> CellIDs)
+{ 
+ 
+  MeshType::Pointer transformedCenters=MeshType::New();  
+  CellAutoPointer aCell, MyCell;
+  long int myid =0;
+
+  for (int c=0; c<CellIDs.size(); ++c)
+  {
+    MyCell.TakeOwnership( new PolylineType );
+    MeshType::CellIdentifier CellID = CellIDs.at(c);
+    atlasCenters->GetCell(CellID, aCell);
+    CellDataType cellvalue;
+    atlasCenters->GetCellData(CellID, &cellvalue);
+    PolylineType::PointIdIterator pit = aCell->PointIdsBegin();
+    MeshType::PointType point, tpoint;
+    MeshType::PixelType pointvalue;
+    for (unsigned int j=0; j < aCell->GetNumberOfPoints(); j++)
+    {
+      atlasCenters->GetPoint(*pit, &point);
+      atlasCenters->GetPointData(*pit, &pointvalue);
+      tpoint = transform->GetInverseTransform()->TransformPoint(point);
+      transformedCenters->SetPoint(myid, tpoint );
+      transformedCenters->SetPointData(myid, pointvalue );
+      MyCell->SetPointId(j,myid);
+      pit++; myid++;
+    }
+    transformedCenters->SetCell(c, MyCell);
+    transformedCenters->SetCellData(c, cellvalue);
+
+  }
+
+  return transformedCenters;
+}
+
 
 int main(int argc, char* argv[])
 {
 
   PARSE_ARGS;
 
-  MeshType::Pointer    Trajectories, Centers;
+  MeshType::Pointer    Trajectories, Centers, atlasCenters;
   MeshType::Pointer    oldCenters = MeshType::New();
   Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
-  
-  if (!centersFilename.empty())
+//  useAtlas =1;
+  if (useAtlas)
+  {
+    std::string path;
+    if (AtlasDir[0] == '.')
+    {
+      path = itksys::SystemTools::GetFilenamePath(argv[0]);
+      path = path + "/" + AtlasDir;
+    }
+    char atlasfileName1[250];
+		sprintf(atlasfileName1, "%s/atlasCenters.vtp",path.c_str());
+		atlasCenters = ReadVTKfile(atlasfileName1);
+    
+    //Read FA map of the atlas
+    char atlasfileName2[250];
+		sprintf(atlasfileName2, "%s/atlasFAMap.nhdr",path.c_str());
+    typedef itk::ImageFileReader< ImageType > ReaderType;
+    ReaderType::Pointer reader = ReaderType::New();
+    reader->SetFileName(atlasfileName2);
+    reader->Update();
+    ImageType::Pointer atlasFAVolume = reader->GetOutput();
+    //Read FA map of the case
+    ReaderType::Pointer reader2 = ReaderType::New();
+    reader2->SetFileName(subjectFAFilename.c_str());
+    reader2->Update();
+    ImageType::Pointer caseFAVolume = reader2->GetOutput();
+    //Smooth subject's FA volume if the atlas' FA map is smooth. 
+    //genu=1; splenium =1;
+    //Read which bundles are selected to be clustered:
+    std::vector<unsigned long int> atlasCellIDs;
+    if (splenium)
+    {atlasCellIDs.push_back(0);}
+    if (genu)
+    {atlasCellIDs.push_back(2);}
+    if (cingulumR)
+    {atlasCellIDs.push_back(3);}
+    if (cingulumL)
+    {atlasCellIDs.push_back(4);}
+
+    if (atlasCellIDs.size()>0)
+    {
+      //Do affine registration
+      TransformType::Pointer transform;
+      transform = doAffineRegistration(caseFAVolume, atlasFAVolume);
+      //Select and transfer the centers
+       Centers = applyTransform(atlasCenters, transform, atlasCellIDs );
+       CopyFieldType copyField = {0,0,0,0};
+       WriteVTKfile(Centers,transformedCentersFilename.c_str(),copyField);
+    }
+    else
+    {
+      std::cerr << "User should select at least one of the bundles in the atlas' list to be clustered! " << std::endl;
+      return -1;
+    }
+  }
+  else if (!centersFilename.empty())
   {
     Centers = ReadVTKfile(centersFilename.c_str());
   }
-  else if (seeds.size() > 0)
+  /*else if (seeds.size() > 0)
     {
      MeshType::PointType lpsPoint;
      std::vector<unsigned long int> CellIDs;
@@ -1512,7 +1738,7 @@ int main(int argc, char* argv[])
      
       Centers = getTrajectories(Trajectories, CellIDs);
 
-  }
+  }*/
 
   else
     {
@@ -1523,7 +1749,7 @@ int main(int argc, char* argv[])
   CopyFieldType copyField = {0,0,1,1};
   copyField.ClusterLabel = 0;
 
-  WriteVTKfile(Centers,initCentersFilename.c_str(),copyField);
+  //WriteVTKfile(Centers,initCentersFilename.c_str(),copyField);
 
   copyField.ClusterLabel = 1;
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
@@ -1637,7 +1863,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-  PerformQuantitativeAnalysis = 1;
+  //PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh: 
