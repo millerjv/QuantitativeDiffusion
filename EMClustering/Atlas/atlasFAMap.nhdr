@@ -1,0 +1,13 @@
+NRRD0004
+# Complete NRRD file format specification at:
+# http://teem.sourceforge.net/nrrd/format.html
+type: float
+dimension: 3
+space: left-posterior-superior
+sizes: 128 128 100
+space directions: (1.60156,0,0) (0,1.5636,-0.346642) (0,0.324659,1.46444)
+kinds: domain domain domain
+endian: little
+encoding: gzip
+space origin: (0,0,0)
+data file: atlasFAMap.raw.gz
