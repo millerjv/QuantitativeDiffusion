@@ -344,6 +344,19 @@ MeshType::Pointer ReadVTKfile(std::string filename)
   return mesh;
 }
 
+MeshType::Pointer ReadVTKfilesFromDirectory(std::string path)
+{
+	// create a new mesh
+	MeshType::Pointer popMesh = MeshType::New();
+	// for loop over the number of files in the directory
+	// read each vtk file
+	// caseMesh = ReadVTKfile(vtkfilename);
+	// add the existing mesh to the big mesh
+	// addMesh(popMesh, caseMesh, caseName);
+
+	return popMesh;
+}
+
 void WriteCSVfile(std::string fileName, const Array2DType &mat)
 {
   ofstream myfile;
@@ -978,7 +991,7 @@ ArrayType diffMeshes(const MeshType* mesh1, const MeshType* mesh2)
   else
   {
     dist.fill(0);
-    long unsigned int newpid = 0;
+    //long unsigned int newpid = 0;
     for (unsigned int k=0; k<NumberOfCells1; ++k)
     {
       CellAutoPointer aCell1,aCell2;
@@ -1208,7 +1221,7 @@ MeshType::Pointer getTrajectories(MeshType* mesh, std::vector<unsigned long int>
   CellAutoPointer aCell, MyCell;
   long int myid =0;
 
-  for (int c=0; c<CellIDs.size(); ++c)
+  for (unsigned int c=0; c<CellIDs.size(); ++c)
   {
     MyCell.TakeOwnership( new PolylineType );
     MeshType::CellIdentifier CellID = CellIDs.at(c);
@@ -1624,7 +1637,7 @@ MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transfor
   CellAutoPointer aCell, MyCell;
   long int myid =0;
 
-  for (int c=0; c<CellIDs.size(); ++c)
+  for (unsigned int c=0; c<CellIDs.size(); ++c)
   {
     MyCell.TakeOwnership( new PolylineType );
     MeshType::CellIdentifier CellID = CellIDs.at(c);
@@ -1634,11 +1647,17 @@ MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transfor
     PolylineType::PointIdIterator pit = aCell->PointIdsBegin();
     MeshType::PointType point, tpoint;
     MeshType::PixelType pointvalue;
+    TransformType::ParametersType invTransParams;
+    TransformType::Pointer invTransform = TransformType::New();
+    invTransParams = transform->GetInverseTransform()->GetParameters();
+    invTransform->SetCenter( transform->GetCenter() );
+    invTransform->SetParameters( invTransParams );
     for (unsigned int j=0; j < aCell->GetNumberOfPoints(); j++)
     {
       atlasCenters->GetPoint(*pit, &point);
       atlasCenters->GetPointData(*pit, &pointvalue);
-      tpoint = transform->GetInverseTransform()->TransformPoint(point);
+      //tpoint = transform->GetInverseTransform()->TransformPoint(point);
+      tpoint = invTransform->TransformPoint(point);
       transformedCenters->SetPoint(myid, tpoint );
       transformedCenters->SetPointData(myid, pointvalue );
       MyCell->SetPointId(j,myid);
@@ -1660,7 +1679,16 @@ int main(int argc, char* argv[])
 
   MeshType::Pointer    Trajectories, Centers, atlasCenters;
   MeshType::Pointer    oldCenters = MeshType::New();
+  bool populationStudy =1;
+  if (populationStudy)
+  {
+	std::string vtkfilesdir = "/fs/courpus1/VTKs/";
+	Trajectories = ReadVTKfilesFromDirectory(vtkfilesdir);
+  }
+  else
+  {
   Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
+  }
 //  useAtlas =1;
   if (useAtlas)
   {

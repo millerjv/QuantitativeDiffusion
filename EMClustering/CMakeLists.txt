@@ -67,7 +67,7 @@ ${Clustering_BINARY_DIR}/Testing/Temporary/OutputClusters.vtp
 
 # configure the resources for the atlas
 set(ATLAS_PARENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
-file(GLOB ATLASFILES RELATIVE ${ATLAS_PARENT_DIR} "Atlas/*")
+file(GLOB ATLASFILES RELATIVE ${ATLAS_PARENT_DIR} "Atlas/?*.*")
 foreach(file ${ATLASFILES} )
     configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/${file} ${CMAKE_BINARY_DIR}/${Slicer3_INSTALL_PLUGINS_LIB_DIR}/${PROJECT_NAME}/${file} COPYONLY)
 endforeach(file)
