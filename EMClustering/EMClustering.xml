@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
-  <category>Tractography</category>
+  <category>Diffusion.Tractography</category>
   <title>EM Clustering</title>
   <description>
     This module clusters a set of input trajectories into a number of bundles, generates arc length parameterization by establishing the point correspondences and reports diffusion parameters along the bundles. The module requires specification of seed trajectories(or initial centerlines) as representatives of the desired bundles. If a fiducial list is passed to the algorithm, the closest trajectories are taken as the seed trajectories. To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/ If you use this module in your research, please make sure that you reference this article: Mahnaz Maddah, W. Eric L. Grimson, Simon K. Warfield, William M. Wells, "A Unified Framework for Clustering and Quantitative Analysis of White Matter Fiber Tracts", Medical Image Analysis, vol 12, issue 2, pp. 191-202, 2008.
@@ -16,20 +16,36 @@
     <label>IO</label>
     <description>Parameters specifying data input and output</description>
 
-    <geometry type="fiberbundle">
-      <name>trajectoriesFilename</name>
-      <label>Trajectories</label>
-      <channel>input</channel>
-      <index>0</index>
-      <description>Input trajectories</description>
-    </geometry>
-
     <geometry  type="fiberbundle">
       <name>outputClustersFilename</name>
       <label>Output Clusters</label>
       <channel>output</channel>
-      <index>1</index>
+      <index>0</index>
       <description>Output of clustering which is a set of labeled trajectories</description>
+    </geometry>
+    
+    <boolean>
+      <name>populationStudy</name>
+      <label>Population Study?</label>
+      <description>Clustering a poulation of subjects?</description>
+      <longflag>population</longflag>
+      <default>1</default>
+    </boolean> 
+
+    <directory>
+      <name>TractsDir</name>
+      <longflag>populationDir</longflag>
+      <label>Tract Files</label>
+      <description>Directory which includes a collection of vtk/vtp files of tracts to be studied </description>
+      <default>/fs/corpus1/asset24_cluster_pilot/tracts/ped-icap_l</default>
+    </directory>
+    
+    <geometry type="fiberbundle">
+      <name>trajectoriesFilename</name>
+      <label>Trajectories</label>
+      <channel>input</channel>
+      <longflag>trajectories</longflag>
+      <description>Input trajectories</description>
     </geometry>
     
     <boolean>
@@ -37,7 +53,7 @@
       <label>Use an atlas?</label>
       <description>Should an atlas be used in clustering</description>
       <longflag>use_atlas</longflag>
-      <default>true</default>
+      <default>0</default>
     </boolean> 
 
     <directory>

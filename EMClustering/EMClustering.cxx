@@ -3,6 +3,7 @@
 #endif
 //// SLICER VERSION
 #include "itksys/SystemTools.hxx"
+#include "itksys/Glob.hxx"
 #include "itkMesh.h"
 #include "itkLineCell.h"
 #include "itkPolylineCell.h"
@@ -36,6 +37,7 @@
 #include "vtkCellData.h"
 #include <vtkDataSetAttributes.h> 
 #include <vtkPointData.h> 
+#include <vtkStringArray.h>
 
 #include "itkAffineTransform.h"
 #include "itkImageRegistrationMethod.h"
@@ -149,7 +151,8 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
 
 // Convert the itk mesh to vtk polydata:
 {
-  int numPoints = mesh->GetNumberOfPoints();
+  unsigned int numPoints = mesh->GetNumberOfPoints();
+  unsigned int numCells  = mesh->GetNumberOfCells();
 
   vtkPoints* vpoints = vtkPoints::New();
   vpoints->SetNumberOfPoints(numPoints);
@@ -163,13 +166,17 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   scalars->SetName("FA");
 
   vtkUnsignedLongArray* clusterScalars = vtkUnsignedLongArray::New();
-  clusterScalars->SetNumberOfTuples(mesh->GetNumberOfCells());
+  clusterScalars->SetNumberOfTuples(numCells);
   clusterScalars->SetName("ClusterId");
 
 
   vtkDoubleArray* clusterMembershipProbs = vtkDoubleArray::New();
-  clusterMembershipProbs->SetNumberOfTuples(mesh->GetNumberOfCells());
+  clusterMembershipProbs->SetNumberOfTuples(numCells);
   clusterMembershipProbs->SetName("membershipProbabilities");
+
+  vtkStringArray* subjectName = vtkStringArray::New();
+  subjectName->SetName("CaseName");
+  subjectName->SetNumberOfTuples(numCells);
 
   itk::FixedArray<double, 9 >  MyTensor;
   double MyFA;
@@ -223,6 +230,10 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
 
     mesh->GetCellData(i, &cellvalue);
     clusterScalars->SetValue(i,cellvalue.ClusterLabel);
+    std::string filename = itksys::SystemTools::GetFilenameName(cellvalue.CaseName);
+    std::string subfilename = filename.substr(0,13);
+    //std::cout << subfilename.c_str()<< std::endl;
+    subjectName->SetValue(i, subfilename.c_str()); //cellvalue.CaseName
     clusterMembershipProbs->SetNumberOfComponents(cellvalue.membershipProbability.Size());
     for (unsigned int p=0; p< cellvalue.membershipProbability.Size(); p++)
     {
@@ -235,11 +246,10 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   {
     polydata->GetCellData()->AddArray(clusterScalars);  
     polydata->GetCellData()->AddArray(clusterMembershipProbs);
+    polydata->GetCellData()->AddArray(subjectName);
   }
+
   polydata->SetLines( polylines );
-
-  //polydata->Print(std::cout);
-
 
   polylines->Delete();
   vpoints->Delete();
@@ -247,6 +257,7 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   scalars->Delete();
   clusterScalars->Delete();
   clusterMembershipProbs->Delete();
+  subjectName->Delete();
 }
 
 vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
@@ -328,20 +339,73 @@ void WriteVTKfile(MeshType* mesh, std::string filename, CopyFieldType copyField)
   polydata->Delete();
 }
 
-MeshType::Pointer ReadVTKfile(std::string filename)
 
+void addMesh(MeshType* popMesh, MeshType* caseMesh, const std::string caseName)
 {
-  vtkXMLPolyDataReader *MyPolyDataReader = vtkXMLPolyDataReader::New();
-  MyPolyDataReader->SetFileName( filename.c_str() );
-  std::cout<< "Reading "<<filename.c_str()<< "..."<<std::endl;
-  MyPolyDataReader->Update();
-  vtkPolyData* rpolydata = MyPolyDataReader->GetOutput();
-  //rpolydata->Print(std::cout);
+  //add caseMesh to popMesh
+	unsigned int pitNew = popMesh->GetNumberOfPoints();
+	unsigned int citNew = popMesh->GetNumberOfCells();
 
+	for(unsigned int i=0; i<caseMesh->GetNumberOfCells(); i++)
+    {
+	    CellAutoPointer atrajectory, copiedtrajectory;
+	    copiedtrajectory.TakeOwnership( new PolylineType );
+
+        caseMesh->GetCell(i, atrajectory);
+        PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+        MeshType::PointType point;
+        MeshType::PixelType pointvalue;
+        CellDataType cellvalue;
+
+        for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
+        {
+          caseMesh->GetPoint(*pit, &point);
+          caseMesh->GetPointData( *pit, &pointvalue );
+          popMesh->SetPoint(pitNew, point);
+          popMesh->SetPointData( pitNew, pointvalue );
+          copiedtrajectory->SetPointId(j,pitNew);
+          ++pit; ++pitNew;
+        }
+
+        caseMesh->GetCellData(i, &cellvalue);
+        popMesh->SetCell(citNew, copiedtrajectory);
+        cellvalue.CaseName = caseName;
+        popMesh->SetCellData(citNew, cellvalue);
+        citNew++;
+    }
+}
+
+MeshType::Pointer ReadVTKfile(std::string filename)
+{
   MeshType::Pointer     mesh;
-  mesh = vtk2itkMesh(rpolydata);
-  MyPolyDataReader->Delete();
+  std::string extension = itksys::SystemTools::GetFilenameExtension(filename);
+  if (extension.compare(".VTP")==0 || extension.compare(".vtp")==0)
+  {
+	  vtkXMLPolyDataReader *MyPolyDataReader = vtkXMLPolyDataReader::New();
+	  MyPolyDataReader->SetFileName( filename.c_str() );
+	  std::cout<< "Reading "<<filename.c_str()<< "..."<<std::endl;
+	  MyPolyDataReader->Update();
+	  vtkPolyData* rpolydata = MyPolyDataReader->GetOutput();
+	  //rpolydata->Print(std::cout);
+      mesh = vtk2itkMesh(rpolydata);
+      MyPolyDataReader->Delete();
+  }
+  else if (extension.compare(".VTK")==0 || extension.compare(".vtk")==0)
+    {
+  	  vtkPolyDataReader *MyPolyDataReader = vtkPolyDataReader::New();
+  	  MyPolyDataReader->SetFileName( filename.c_str() );
+  	  std::cout<< "Reading "<<filename.c_str()<< "..."<<std::endl;
+  	  MyPolyDataReader->Update();
+  	  vtkPolyData* rpolydata = MyPolyDataReader->GetOutput();
+  	  mesh = vtk2itkMesh(rpolydata);
+      MyPolyDataReader->Delete();
+    }
+  else
+  {
+	std::cerr<< extension << " is not a valid extension!" <<std::endl;
+  }
   return mesh;
+
 }
 
 MeshType::Pointer ReadVTKfilesFromDirectory(std::string path)
@@ -349,10 +413,19 @@ MeshType::Pointer ReadVTKfilesFromDirectory(std::string path)
 	// create a new mesh
 	MeshType::Pointer popMesh = MeshType::New();
 	// for loop over the number of files in the directory
-	// read each vtk file
-	// caseMesh = ReadVTKfile(vtkfilename);
+	itksys::Glob allfiles;
+	std::string globPath = path+"/*.vt*"; //vtk or vtp
+	allfiles.FindFiles(globPath);
+	std::vector<std::string> allfilenames = allfiles.GetFiles();
+	for (unsigned int v=0; v< allfilenames.size(); v++)
+	{
+     // read each vtk file
+	std::string caseName = allfilenames.at(v);
+	//std::string vtkfilename= path + '/' + caseName;
+	MeshType::Pointer caseMesh =  ReadVTKfile(caseName);
 	// add the existing mesh to the big mesh
-	// addMesh(popMesh, caseMesh, caseName);
+	addMesh(popMesh, caseMesh, caseName);
+	}
 
 	return popMesh;
 }
@@ -1679,17 +1752,25 @@ int main(int argc, char* argv[])
 
   MeshType::Pointer    Trajectories, Centers, atlasCenters;
   MeshType::Pointer    oldCenters = MeshType::New();
-  bool populationStudy =1;
+
+  // Get the input trajectories
+  populationStudy=1;
   if (populationStudy)
   {
-	std::string vtkfilesdir = "/fs/courpus1/VTKs/";
-	Trajectories = ReadVTKfilesFromDirectory(vtkfilesdir);
+	Trajectories = ReadVTKfilesFromDirectory(TractsDir.c_str());
+  }
+  else if (!trajectoriesFilename.empty())
+  {
+    Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
   }
   else
   {
-  Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
+	std::cerr << "No input was given as a collection of trajectories to be clustered" << std::endl;
+	return -1;
   }
-//  useAtlas =1;
+
+  // Get the intialcenter(s)
+  useAtlas = 0;
   if (useAtlas)
   {
     std::string path;
@@ -1699,12 +1780,12 @@ int main(int argc, char* argv[])
       path = path + "/" + AtlasDir;
     }
     char atlasfileName1[250];
-		sprintf(atlasfileName1, "%s/atlasCenters.vtp",path.c_str());
-		atlasCenters = ReadVTKfile(atlasfileName1);
+    sprintf(atlasfileName1, "%s/atlasCenters.vtp",path.c_str());
+	atlasCenters = ReadVTKfile(atlasfileName1);
     
     //Read FA map of the atlas
     char atlasfileName2[250];
-		sprintf(atlasfileName2, "%s/atlasFAMap.nhdr",path.c_str());
+	sprintf(atlasfileName2, "%s/atlasFAMap.nhdr",path.c_str());
     typedef itk::ImageFileReader< ImageType > ReaderType;
     ReaderType::Pointer reader = ReaderType::New();
     reader->SetFileName(atlasfileName2);
@@ -1715,8 +1796,6 @@ int main(int argc, char* argv[])
     reader2->SetFileName(subjectFAFilename.c_str());
     reader2->Update();
     ImageType::Pointer caseFAVolume = reader2->GetOutput();
-    //Smooth subject's FA volume if the atlas' FA map is smooth. 
-    //genu=1; splenium =1;
     //Read which bundles are selected to be clustered:
     std::vector<unsigned long int> atlasCellIDs;
     if (splenium)
@@ -1891,7 +1970,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-  //PerformQuantitativeAnalysis = 1;
+  PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh: 
@@ -1902,7 +1981,6 @@ int main(int argc, char* argv[])
     std::vector<unsigned long int> cellId;
     std::vector <Array3DType> clusterFeatures;
     Array3DType posts;
-
     for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
 
