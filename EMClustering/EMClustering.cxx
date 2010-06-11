@@ -53,7 +53,7 @@
 #include "itkCommand.h"
 
 const unsigned int PointDimension = 3;
-const unsigned int MaxTopologicalDimension = 1;    
+const unsigned int MaxTopologicalDimension = 1;
 typedef double     CoordinateType;
 typedef float      VariableType;
 typedef itk::Vector<CoordinateType, PointDimension> VectorType;
@@ -61,28 +61,29 @@ typedef itk::Array<VariableType>   ArrayType;
 typedef itk::Array2D<VariableType> Array2DType;
 typedef std::vector<Array2DType>   Array3DType;
 
-typedef struct{double                      FA; 
+typedef struct{double                      FA;
 itk::FixedArray<double, PointDimension >   EigenValues;
 itk::FixedArray<double, 9 >                Tensor;
-itk::Point<CoordinateType, PointDimension> AtlasPosition;   
+itk::Point<CoordinateType, PointDimension> AtlasPosition;
 itk::Array<long int>                       Correspondence;
-}PixelType; 
+}PixelType;
 
-typedef struct{std::string   CaseName; 
+typedef struct{std::string   CaseName;
 int                          ClusterLabel;
 ArrayType                    membershipProbability;
 ArrayType                    atlasPriors;
-}CellDataType; 
+}CellDataType;
 
-typedef struct{bool   FA; 
+typedef struct{bool   FA;
 bool                  EigenValues;
 bool                  Tensor;
 bool                  ClusterLabel;
-}CopyFieldType; 
+bool                  CaseName;
+}CopyFieldType;
 
 
 typedef double InterpolationWeightType;
-typedef itk::DefaultStaticMeshTraits< 
+typedef itk::DefaultStaticMeshTraits<
 PixelType, PointDimension, MaxTopologicalDimension,
 CoordinateType, InterpolationWeightType, CellDataType >     MeshTraits;
 typedef itk::Mesh< PixelType, PointDimension, MeshTraits >  MeshType;
@@ -93,7 +94,7 @@ typedef itk::DiffusionTensor3D< CoordinateType >            TensorPixelType;
 typedef TensorPixelType::RealValueType                      RealValueType;
 typedef TensorPixelType::EigenValuesArrayType               EigenValuesArrayType;
 typedef itk::OrientedImage<CoordinateType,PointDimension >  ImageType;
-typedef itk::Array2D<CoordinateType>                        CurveType;  
+typedef itk::Array2D<CoordinateType>                        CurveType;
 typedef itk::Array<CoordinateType>                          CurvePointType;
 typedef itk::AffineTransform<CoordinateType,PointDimension>            TransformType;
 typedef itk::RegularStepGradientDescentOptimizer                       OptimizerType;
@@ -102,7 +103,7 @@ typedef itk::LinearInterpolateImageFunction<ImageType,CoordinateType>  Interpola
 typedef itk::ImageRegistrationMethod<ImageType,ImageType >             RegistrationType;
 
 
-class CommandIterationUpdate : public itk::Command 
+class CommandIterationUpdate : public itk::Command
 {
 public:
   typedef  CommandIterationUpdate   Self;
@@ -122,7 +123,7 @@ public:
 
   void Execute(const itk::Object * object, const itk::EventObject & event)
   {
-    OptimizerPointer optimizer = 
+    OptimizerPointer optimizer =
                       dynamic_cast< OptimizerPointer >( object );
     if( ! itk::IterationEvent().CheckEvent( &event ) )
       {
@@ -131,7 +132,7 @@ public:
       std::cout << optimizer->GetCurrentIteration() << "   ";
       std::cout << optimizer->GetValue() << "   ";
       std::cout << optimizer->GetCurrentPosition();
-     
+
       /* Print the angle for the trace plot
       vnl_matrix<double> p(2, 2);
       p[0][0] = (double) optimizer->GetCurrentPosition()[0];
@@ -182,7 +183,7 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   double MyFA;
   MeshType::PixelType pointvalue;
   MeshType::PointsContainer::Pointer points = mesh->GetPoints();
-  for(MeshType::PointsContainer::Iterator i = points->Begin(); i != 
+  for(MeshType::PointsContainer::Iterator i = points->Begin(); i !=
     points->End(); ++i)
   {
     int idx = i->Index();
@@ -196,7 +197,7 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
     MyTensor = pointvalue.Tensor;
     MyFA = pointvalue.FA;
     scalars->InsertTuple1(idx, MyFA);
-    tensors->SetTuple9(idx,MyTensor[0],MyTensor[1],MyTensor[2],MyTensor[3],MyTensor[4],MyTensor[5],MyTensor[6],MyTensor[7],MyTensor[8]); 
+    tensors->SetTuple9(idx,MyTensor[0],MyTensor[1],MyTensor[2],MyTensor[3],MyTensor[4],MyTensor[5],MyTensor[6],MyTensor[7],MyTensor[8]);
   }
 
   polydata->SetPoints(vpoints);
@@ -244,11 +245,14 @@ void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldTyp
   //COPY CELL DATA
   if (copyField.ClusterLabel)
   {
-    polydata->GetCellData()->AddArray(clusterScalars);  
+    polydata->GetCellData()->AddArray(clusterScalars);
     polydata->GetCellData()->AddArray(clusterMembershipProbs);
-    polydata->GetCellData()->AddArray(subjectName);
   }
 
+  if (copyField.CaseName)
+  {
+    polydata->GetCellData()->AddArray(subjectName);
+  }
   polydata->SetLines( polylines );
 
   polylines->Delete();
@@ -269,9 +273,9 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
 
 void CopyVtkPolyData2ItkMesh(vtkPolyData* polydata, MeshType* mesh)
 // Convert the vtk polydata to itk mesh:
-{ 
+{
   vtkPoints* vpoints = polydata->GetPoints();
-  int numPoints = polydata->GetNumberOfPoints();  
+  int numPoints = polydata->GetNumberOfPoints();
   vtkCellArray *polylines = polydata->GetLines();
 
   vtkDataArray *tensors = polydata->GetPointData()->GetTensors();
@@ -283,7 +287,7 @@ void CopyVtkPolyData2ItkMesh(vtkPolyData* polydata, MeshType* mesh)
     // take care of the orientation difference between itk and vtk
     MeshType::PointType vpoint = vpoints->GetPoint(i);
     vpoint[0]= - vpoint[0];
-    vpoint[1]= - vpoint[1];  
+    vpoint[1]= - vpoint[1];
 
     mesh->SetPoint(i, vpoint);
     if (tensors)
@@ -324,7 +328,7 @@ MeshType::Pointer vtk2itkMesh(vtkPolyData* polydata)
   return mesh;
 }
 
-void WriteVTKfile(MeshType* mesh, std::string filename, CopyFieldType copyField) 
+void WriteVTKfile(MeshType* mesh, std::string filename, CopyFieldType copyField)
 
 {
   vtkPolyData* polydata;
@@ -408,20 +412,15 @@ MeshType::Pointer ReadVTKfile(std::string filename)
 
 }
 
-MeshType::Pointer ReadVTKfilesFromDirectory(std::string path)
+MeshType::Pointer ReadVTKfiles(std::vector<std::string> allfilenames)
 {
 	// create a new mesh
 	MeshType::Pointer popMesh = MeshType::New();
-	// for loop over the number of files in the directory
-	itksys::Glob allfiles;
-	std::string globPath = path+"/*.vt*"; //vtk or vtp
-	allfiles.FindFiles(globPath);
-	std::vector<std::string> allfilenames = allfiles.GetFiles();
+	// for loop over the number of files
 	for (unsigned int v=0; v< allfilenames.size(); v++)
 	{
      // read each vtk file
 	std::string caseName = allfilenames.at(v);
-	//std::string vtkfilename= path + '/' + caseName;
 	MeshType::Pointer caseMesh =  ReadVTKfile(caseName);
 	// add the existing mesh to the big mesh
 	addMesh(popMesh, caseMesh, caseName);
@@ -466,7 +465,7 @@ void writeMCSVfile(std::string fileName, const ArrayType &y, const ArrayType &ye
    {
      myfile << r << "," << y(r) << "," << yerr(r) <<std::endl;
    }
-  }  
+  }
   myfile.close();
 }
 
@@ -489,14 +488,14 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
     // Build a distance map for each cluster center
     space->FillBuffer(0);
 
-    // Mark up the voxels of the centerlines on the image 
+    // Mark up the voxels of the centerlines on the image
     CellAutoPointer Centerline;
     mesh_centers->GetCell(ClusterIdx, Centerline);
     PolylineType::PointIdIterator pit = Centerline->PointIdsBegin();
     ImageType::IndexType ind;
     MeshType::PointType point;
     std::vector<long int> MyLabels;
-    MyLabels.clear(); 
+    MyLabels.clear();
     bool outOfSpace = 1;
     for (unsigned int j=0; j < Centerline->GetNumberOfPoints(); ++j)
     {
@@ -521,7 +520,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       }
       else
       {
-        std::cout<<"Point "<< point<<" on the center "<< ClusterIdx <<" is out of the space"<<std::endl; 
+        std::cout<<"Point "<< point<<" on the center "<< ClusterIdx <<" is out of the space"<<std::endl;
       }
       ++pit;
     }
@@ -550,7 +549,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       writer->Update(); */
 
       //Create the interpolator for the Distance Map
-      itk::LinearInterpolateImageFunction<ImageType, double>::Pointer DMInterpolator = 
+      itk::LinearInterpolateImageFunction<ImageType, double>::Pointer DMInterpolator =
         itk::LinearInterpolateImageFunction<ImageType, double>::New();
       DMInterpolator->SetInputImage(DistanceMap);
 
@@ -572,15 +571,15 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
           mesh->GetPoint(*pit, &point);
           if (space->TransformPhysicalPointToIndex(point, ind))
           {
-            itk::ContinuousIndex<double, 3> cidx;    
+            itk::ContinuousIndex<double, 3> cidx;
             if (space->TransformPhysicalPointToContinuousIndex( point, cidx ))
             {
               sumdist+=DMInterpolator->Evaluate(point);}
             mesh->GetPointData( *pit, &pointvalue );
             pointvalue.Correspondence.set_size(NumberOfClusters);
-            //1st output -- the correspondence info is going to be used in updating 
-            //the centers and further quantitative analysis.      
-            pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));  
+            //1st output -- the correspondence info is going to be used in updating
+            //the centers and further quantitative analysis.
+            pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
             MyLabelsOnTrajectory.push_back(VoronoiMap->GetPixel(ind));
             mesh->SetPointData( *pit, pointvalue );
           }
@@ -598,7 +597,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
           for (unsigned int n=0; n < MyLabelsOnTrajectory.size(); ++n)
             if (MyLabels.at(m) == MyLabelsOnTrajectory.at(n))
             {
-              LabelExisted ++; 
+              LabelExisted ++;
               break;
             }
         }
@@ -607,7 +606,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
         VariableType AveDist = sumdist/(atrajectory->GetNumberOfPoints());
         VariableType missMatch = (VariableType)(MyLabels.size() - LabelExisted)/MyLabels.size()*AveDist;
         //2nd output
-        DissimilarityMeasure[t][ClusterIdx] = (AveDist + missMatch);  
+        DissimilarityMeasure[t][ClusterIdx] = (AveDist + missMatch);
         // std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " "<<LabelExisted<<" "<< missMatch<<std::endl;
         LabelExisted = 0;
 
@@ -630,19 +629,19 @@ VariableType Gamma(VariableType x, VariableType alpha, VariableType beta)
 
   gammaPdf = 1/(vnl_gamma(alpha)*pow(beta,alpha))*pow(x,(alpha-1))*exp(-x/beta);
 
-  return gammaPdf; 
+  return gammaPdf;
 }
 
 Array2DType ComputeLikelihood(const Array2DType &DissimilarityMatrix, ArrayType alpha, ArrayType beta)
-{ 
-  unsigned int NumberOfClusters = DissimilarityMatrix.cols();   
-  unsigned int NumberOfTrajectories = DissimilarityMatrix.rows();   
+{
+  unsigned int NumberOfClusters = DissimilarityMatrix.cols();
+  unsigned int NumberOfTrajectories = DissimilarityMatrix.rows();
 
-  Array2DType Likelihood; 
+  Array2DType Likelihood;
   Likelihood.SetSize(NumberOfTrajectories,NumberOfClusters);
 
-  for (unsigned int k=0; k<NumberOfClusters; ++k) 
-  {  
+  for (unsigned int k=0; k<NumberOfClusters; ++k)
+  {
     if (beta[k]>0) //valid distrubution
     {
       for (unsigned long int n=0; n<NumberOfTrajectories; ++n)
@@ -686,9 +685,9 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
     //To Do: set the threshold differently when havePrior = 1
     bool copycell = 0;
     for (unsigned int m=0; m < arow.Size(); ++m)  //go over the clusters
-    if (arow(m)> MyMinLikelihoodThr(m)) 
-      { // To Do: || arow(m)<peaks(m)" 
-        copycell = 1; 
+    if (arow(m)> MyMinLikelihoodThr(m))
+      { // To Do: || arow(m)<peaks(m)"
+        copycell = 1;
         break;
       }
 
@@ -741,7 +740,7 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
 }
 Array2DType ComputePosterior(const Array2DType &Likelihood, const Array2DType &Prior)
 {
-  Array2DType Posterior; 
+  Array2DType Posterior;
   Posterior = element_product(Likelihood, Prior);
   //now normalize it:
   if (Likelihood.cols() == 1)
@@ -777,11 +776,11 @@ void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2D
   N.SetSize(NumberOfClusters);
 
   for (unsigned int k=0; k<NumberOfClusters; ++k)
-  { 
+  {
     N[k] = Posterior.get_column(k).sum();
     if (N[k]>0)
     {
-      X[k] = log(A.get_column(k).sum()/N(k))- B.get_column(k).sum()/N(k); 
+      X[k] = log(A.get_column(k).sum()/N(k))- B.get_column(k).sum()/N(k);
       alpha[k] = (3- X(k) + sqrt(pow(X(k)-3,2)+ 24*X(k)))/(12*X(k));
       beta[k] = A.get_column(k).sum()/(alpha(k)*N(k));
       if (!havePrior)
@@ -789,7 +788,7 @@ void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2D
         W.set_column(k, N[k]/Posterior.rows());
       }
     }
-    else 
+    else
     { //null cluster - no distribution
       alpha[k] = 0;
       beta[k] = 0;
@@ -800,7 +799,7 @@ void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2D
   // std::cout << W <<std::endl;
 }
 void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
-{ 
+{
   if (Posterior.rows()!= mesh->GetNumberOfCells())
   {
     std::cerr<< "There is a miss-match between the number of trajectories and the membership probabilities to be assigned" <<std::endl;
@@ -808,19 +807,19 @@ void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
   CellDataType cellvalue;
   ArrayType arow;
   for (unsigned int t=0; t<Posterior.rows(); ++t)
-  { 
+  {
     VariableType my_max = -1;
     int my_max_idx;
     arow = Posterior.get_row(t);
     // find the maximum membership probability for t'th trajectory
     for (unsigned int m=0; m<arow.Size(); ++m)
     {
-      if (arow(m)>my_max) 
+      if (arow(m)>my_max)
       {
-        my_max = arow(m); 
+        my_max = arow(m);
         my_max_idx = m;
       }
-    } 
+    }
     CellAutoPointer atrajectory;
     mesh->GetCell(t, atrajectory);
     mesh->GetCellData(t, &cellvalue );
@@ -840,7 +839,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
   for (unsigned int k=0; k<NumberOfClusters; ++k)
   {
-    post = Posterior.get_column(k);  
+    post = Posterior.get_column(k);
     std::vector<long int> sigIDs;
     for (unsigned long int p=0; p<post.Size(); ++p)
     {
@@ -887,7 +886,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
           mesh->GetCell(sigIDs.at(t),atrajectory);
           PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
 
-          VariableType MinDist = itk::NumericTraits<VariableType>::max(); 
+          VariableType MinDist = itk::NumericTraits<VariableType>::max();
           for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
           {
             mesh->GetPoint(*pit, &tpoint);
@@ -916,13 +915,13 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
         //   std::cout<<"Point "<< c <<" on the new center is obtained by aveaging less than 3 points." << std::endl;
         sum_points.Fill(0);
         VariableType SumPost = 0;
-        for ( unsigned int m=0; m<pntStack.size(); ++m) 
+        for ( unsigned int m=0; m<pntStack.size(); ++m)
         {
           MeshType::PointType temp = pntStack[m];
           sum_points[0] += temp[0]*postStack[m];
           sum_points[1] += temp[1]*postStack[m];
           sum_points[2] += temp[2]*postStack[m];
-          SumPost +=postStack[m]; 
+          SumPost +=postStack[m];
         }
         if (SumPost>0)
         {
@@ -930,7 +929,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
           mean_point[1] = sum_points[1]/SumPost;
           mean_point[2] = sum_points[2]/SumPost;
 
-          //compute the distance between the current mean point and the previous one: 
+          //compute the distance between the current mean point and the previous one:
           if (c>0 && cit>0) //not at the begining of the centerline
           {
             distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
@@ -972,15 +971,15 @@ CurveType SmoothCurve(CurveType Curve)
   int window = 5;  //radius
   for (int j=0; j<NumberOfPoints; ++j)
   {
-    CurvePointType sumPoints; 
+    CurvePointType sumPoints;
     sumPoints.set_size(3);
-    sumPoints.fill(0); 
+    sumPoints.fill(0);
     int el =0,low,up;
-    if  ((j-window)<0) 
+    if  ((j-window)<0)
     {
       low=0;
     }
-    else 
+    else
     {
       low =(j-window);
     }
@@ -1053,7 +1052,7 @@ VariableType diffCurve(CurveType MyCurve1, CurveType MyCurve2) //simplest implem
 ArrayType diffMeshes(const MeshType* mesh1, const MeshType* mesh2)
 {
   ArrayType dist;
-  
+
   unsigned int NumberOfCells1 = mesh1->GetNumberOfCells();
   unsigned int NumberOfCells2 = mesh2->GetNumberOfCells();
   dist.SetSize(NumberOfCells1); dist.fill(10000);
@@ -1096,7 +1095,7 @@ ArrayType diffMeshes(const MeshType* mesh1, const MeshType* mesh2)
 
 
       dist[k] = diffCurve(MyCurve1, MyCurve2);
-	  
+
     }
   }
   return dist;
@@ -1117,8 +1116,8 @@ void SetInitialValue(const Array2DType &DissimilarityMatrix, ArrayType &beta)
         sumErr+=DissimilarityMatrix(t,k);
         n++;
       }
-      beta[k] = sumErr/n; 
-      //std::cout<< beta[k] << std::endl;  
+      beta[k] = sumErr/n;
+      //std::cout<< beta[k] << std::endl;
       //beta[k] = 5;
   }
 }
@@ -1130,8 +1129,8 @@ ArrayType AdjustThreshold(VariableType factor, ArrayType alpha, ArrayType beta)
   for (unsigned int k=0; k<alpha.size(); ++k)
   {
     if (beta[k]>0) //valid distribution
-    { 
-      VariableType GammaMode = (alpha[k]>=1)?((alpha[k]-1)*beta[k]):0.1; 
+    {
+      VariableType GammaMode = (alpha[k]>=1)?((alpha[k]-1)*beta[k]):0.1;
       MyMinLikelihoodThr[k] = factor*Gamma(GammaMode,alpha[k],beta[k]);
     }
     else
@@ -1145,8 +1144,8 @@ ArrayType AdjustThreshold(VariableType factor, ArrayType alpha, ArrayType beta)
 void ComputeScalarMeasures(MeshType* Trajectories)
 {
   for (unsigned long int t=0; t<Trajectories->GetNumberOfPoints(); ++t)
-  { 
-    MeshType::PixelType pointvalue; 
+  {
+    MeshType::PixelType pointvalue;
     itk::FixedArray<double, 9 > tensor9;
     TensorPixelType tensor6;
 
@@ -1162,10 +1161,11 @@ void ComputeScalarMeasures(MeshType* Trajectories)
     tensor6.ComputeEigenValues(eigenvals);
     pointvalue.EigenValues = eigenvals;
     pointvalue.FA = tensor6.GetFractionalAnisotropy();
-    
+
     if (pointvalue.FA>=1)
     {
       pointvalue.FA = 0.5; // for now
+      std::cerr << " Reached at a point with FA greater than 1" <<std::endl;
     }
     Trajectories->SetPointData(t, pointvalue );
 
@@ -1265,32 +1265,9 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
   return allFeatures;
 }
 
-void writeCSVfilesOfFeatures(Array3DType allFeatures, int clusterId, std::string FilePrefix, std::string OutputDirectory)
-{
-  //now write out the feature matrices to files:
-  
-  char fileName1[250];
-  sprintf(fileName1, "%s/%s_FA_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  WriteCSVfile(fileName1,allFeatures.at(0));
-  
-
-  char fileName2[250];
-  sprintf(fileName2, "%s/%s_MD_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  WriteCSVfile(fileName2,allFeatures.at(1));
-  
-  char fileName3[250];
-  sprintf(fileName3, "%s/%s_PerDiff_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  WriteCSVfile(fileName3,allFeatures.at(2));
-
-  char fileName4[250];
-  sprintf(fileName4, "%s/%s_ParDiff_cluster%d.csv", OutputDirectory.c_str(),FilePrefix.c_str(),clusterId+1);
-  WriteCSVfile(fileName4,allFeatures.at(3));
-}
-
-
 MeshType::Pointer getTrajectories(MeshType* mesh, std::vector<unsigned long int> CellIDs)
-{ 
-  MeshType::Pointer selectedCells=MeshType::New();  
+{
+  MeshType::Pointer selectedCells=MeshType::New();
   CellAutoPointer aCell, MyCell;
   long int myid =0;
 
@@ -1326,12 +1303,12 @@ MeshType::Pointer getCluster(MeshType* Trajectories,int k)
   MeshType::Pointer cluster;
   std::vector<unsigned long int> CellIds;
   for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
-  { 
+  {
     CellAutoPointer atrajectory;
     CellDataType cellvalue;
     Trajectories->GetCell(t, atrajectory);
     Trajectories->GetCellData(t, &cellvalue );
-    if (cellvalue.ClusterLabel == k+1)  
+    if (cellvalue.ClusterLabel == k+1)
     {
       CellIds.push_back(t);
     }
@@ -1340,18 +1317,36 @@ MeshType::Pointer getCluster(MeshType* Trajectories,int k)
   return cluster;
 }
 
+MeshType::Pointer getCluster(MeshType* Trajectories, std::string caseName)
+{
+  MeshType::Pointer cluster;
+  std::vector<unsigned long int> CellIds;
+  for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
+  {
+    CellAutoPointer atrajectory;
+    CellDataType cellvalue;
+    Trajectories->GetCell(t, atrajectory);
+    Trajectories->GetCellData(t, &cellvalue );
+    if (cellvalue.CaseName.compare(caseName)==0 )
+    {
+      CellIds.push_back(t);
+    }
+  }
+  cluster = getTrajectories(Trajectories, CellIds);
+  return cluster;
+}
 
 Array2DType getClusterPosterior(Array2DType Posterior, MeshType* Trajectories,int k)
 {
   Array2DType post;
   std::vector<long int> CellIds;
   for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
-  { 
+  {
     CellAutoPointer atrajectory;
     CellDataType cellvalue;
     Trajectories->GetCell(t, atrajectory);
     Trajectories->GetCellData(t, &cellvalue );
-    if (cellvalue.ClusterLabel == k+1)  
+    if (cellvalue.ClusterLabel == k+1)
     {
       CellIds.push_back(t);
     }
@@ -1364,6 +1359,19 @@ Array2DType getClusterPosterior(Array2DType Posterior, MeshType* Trajectories,in
   return post;
 }
 
+std::vector<std::string> getClusterSubjectNames(MeshType* Trajectories)
+{
+	std::vector<std::string> subjectNames;
+	for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
+  {
+    CellDataType cellvalue;
+    Trajectories->GetCellData(t, &cellvalue );
+    subjectNames.push_back(cellvalue.CaseName);
+  }
+
+  return subjectNames;
+}
+
 
 ImageType::Pointer getSubSpace(const MeshType* Trajectories, std::vector<double> spacing)
 {
@@ -1374,7 +1382,7 @@ ImageType::Pointer getSubSpace(const MeshType* Trajectories, std::vector<double>
 
   MeshType::PointType p1,p2,p;
 
-  p1[0] = dataBounds[0]; 
+  p1[0] = dataBounds[0];
   p1[1] = dataBounds[2];
   p1[2] = dataBounds[4];
   p2[0] = dataBounds[1];
@@ -1382,13 +1390,13 @@ ImageType::Pointer getSubSpace(const MeshType* Trajectories, std::vector<double>
   p2[2] = dataBounds[5];
 
   ImageType::IndexType start;
-  start[0] = 0; 
-  start[1] = 0; 
-  start[2] = 0; 
+  start[0] = 0;
+  start[1] = 0;
+  start[2] = 0;
   ImageType::SizeType size;
-  size[0] = ceil((p2[0]-p1[0]+5)/spacing[0]);   
-  size[1] = ceil((p2[1]-p1[1]+5)/spacing[1]);   
-  size[2] = ceil((p2[2]-p1[2]+5)/spacing[2]);   
+  size[0] = ceil((p2[0]-p1[0]+5)/spacing[0]);
+  size[1] = ceil((p2[1]-p1[1]+5)/spacing[1]);
+  size[2] = ceil((p2[2]-p1[2]+5)/spacing[2]);
 
   ImageType::RegionType desiredRegion;
   desiredRegion.SetSize(  size  );
@@ -1419,9 +1427,9 @@ void  fillPriorInfo(Array2DType &Prior, MeshType* Trajectories)
   }
 }
 
-ArrayType meanMat(const Array2DType &X, int nanVal=0)                          
+ArrayType meanMat(const Array2DType &X, int nanVal=0)
 //take the column-wise mean of the matrix X, ignoring the zero elements.
-{ 
+{
   ArrayType mX;
   mX.SetSize(X.cols());
   ArrayType aCol;
@@ -1450,23 +1458,23 @@ ArrayType meanMat(const Array2DType &X, int nanVal=0)
       if (n!=0)
       {
         mX(c) = s/n;
-      } 
+      }
       else
       {
         //
         mX(c)=0;
         std::cout << "NaN column at " << c << "!" <<std::endl;
-      } 
+      }
     }
 
   }
 
   return mX;
-} 
+}
 
-ArrayType stdMat(const Array2DType &X, int nanVal=0)                          
+ArrayType stdMat(const Array2DType &X, int nanVal=0)
 //take the column-wise std of the matrix X, ignoring the nonVal elements.
-{ 
+{
   ArrayType mX;
   mX.SetSize(X.cols());
   ArrayType aCol;
@@ -1503,29 +1511,29 @@ ArrayType stdMat(const Array2DType &X, int nanVal=0)
 				ms+=(aCol(i)-meanVal)*(aCol(i)-meanVal);
 
 			}
-			}			
-		 
+			}
+
 
 		mX(c) = sqrt(ms/n);
 
-      } 
+      }
       else
       {
         //
         mX(c)=0;
         std::cout << "NaN column at " << c << "!" <<std::endl;
-      } 
+      }
     }
 
   }
 
   return mX;
-} 
+}
 
 
-ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)                          
+ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
 //take the column-wise 'weighted mean' of the matrix X, ignoring the zero elements.
-{ 
+{
   X = element_product(X, P);   //x = x.p(x)
   ArrayType mX;
   mX.SetSize(X.cols());
@@ -1551,23 +1559,23 @@ ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
           n+= P.get_column(c).get(i);
           s+= aCol(i);
         }
-          
+
       }
       if (n!=0)
       {
         mX(c) = s/n;
-      } 
+      }
       else
       {
         mX(c)=0;
         std::cout << "NaN column at " << c << "!" <<std::endl;
-      } 
+      }
     }
 
   }
 
   return mX;
-}       
+}
 
 void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, ArrayType f)
 {
@@ -1585,51 +1593,6 @@ void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, Arr
 
 }
 
-std::vector<unsigned long int> findTheClosestTrajectory(MeshType* mesh, std::vector<MeshType::PointType> seeds)
-{
-  std::vector<unsigned long int> cellIds;
-  VariableType MinDist = itk::NumericTraits<VariableType>::max(); 
-  ArrayType minDists;
-  minDists.set_size(seeds.size());
-  minDists.Fill(MinDist);
-
-  for(unsigned int s=0; s<seeds.size(); s++)
-  {cellIds.push_back(0);}
-
-
-  MeshType::PointType tpoint;
-  for (unsigned long int t=0; t<mesh->GetNumberOfCells(); ++t)
-  {
-          CellAutoPointer atrajectory;
-          mesh->GetCell(t,atrajectory);
-          PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
-
-          for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
-          {
-            mesh->GetPoint(*pit, &tpoint);
-
-            for(unsigned int s=0; s<seeds.size(); s++)
-            {
-         
-              VariableType dist = tpoint.EuclideanDistanceTo(seeds.at(s));
-              
-              if (dist<minDists(s))
-              {
-                minDists[s] = dist;
-                cellIds.at(s) = t;
-              }
-            }
-            pit++;
-          }
-          
-  }
-
-  return cellIds;
-}
-
-
-
-
 TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* atlasFAVolume)
 {
   MetricType::Pointer         metric        = MetricType::New();
@@ -1640,13 +1603,13 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
   registration->SetMetric(        metric        );
   registration->SetOptimizer(     optimizer     );
   registration->SetInterpolator(  interpolator  );
-  
+
   TransformType::Pointer  transform = TransformType::New();
   registration->SetTransform( transform );
 
   registration->SetFixedImage(caseFAVolume );
   registration->SetMovingImage(atlasFAVolume);
-  
+
   registration->SetFixedImageRegion( caseFAVolume->GetBufferedRegion() );
 
   typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType >  TransformInitializerType;
@@ -1676,7 +1639,7 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
 
   optimizer->SetScales( optimizerScales );
   unsigned int maxNumberOfIterations = 10;
-  optimizer->SetMaximumStepLength( 0.1 ); 
+  optimizer->SetMaximumStepLength( 0.1 );
   optimizer->SetMinimumStepLength( 0.001 );
   optimizer->SetNumberOfIterations( maxNumberOfIterations );
   optimizer->MinimizeOn();
@@ -1684,14 +1647,14 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
   //CommandIterationUpdate::Pointer observer = CommandIterationUpdate::New();
   //optimizer->AddObserver( itk::IterationEvent(), observer );
 
-  try 
-    { 
-    registration->StartRegistration(); 
-    } 
-  catch( itk::ExceptionObject & err ) 
-    { 
-    std::cerr << "ExceptionObject caught !" << std::endl; 
-    std::cerr << err << std::endl; 
+  try
+    {
+    registration->StartRegistration();
+    }
+  catch( itk::ExceptionObject & err )
+    {
+    std::cerr << "ExceptionObject caught !" << std::endl;
+    std::cerr << err << std::endl;
     //return EXIT_FAILURE;
     }
   OptimizerType::ParametersType finalParameters = registration->GetLastTransformParameters();
@@ -1700,13 +1663,14 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
 
   finalTransform->SetCenter( transform->GetCenter() );
   finalTransform->SetParameters( finalParameters );
-  
+
   return finalTransform;
 }
+
 MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transform, std::vector<unsigned long int> CellIDs)
-{ 
- 
-  MeshType::Pointer transformedCenters=MeshType::New();  
+{
+
+  MeshType::Pointer transformedCenters=MeshType::New();
   CellAutoPointer aCell, MyCell;
   long int myid =0;
 
@@ -1753,15 +1717,27 @@ int main(int argc, char* argv[])
   MeshType::Pointer    Trajectories, Centers, atlasCenters;
   MeshType::Pointer    oldCenters = MeshType::New();
 
+  populationStudy=0;
+  useAtlas = 0;
+  PerformQuantitativeAnalysis = 1;
+  CopyFieldType copyField = {0,0,1,1,0};
+
   // Get the input trajectories
-  populationStudy=1;
+
+  std::vector<std::string> allfilenames;
   if (populationStudy)
   {
-	Trajectories = ReadVTKfilesFromDirectory(TractsDir.c_str());
+	copyField.CaseName = 1;
+	itksys::Glob allfiles;
+	std::string globPath = TractsDir+"/*.vt*"; //vtk or vtp
+	allfiles.FindFiles(globPath);
+	allfilenames = allfiles.GetFiles();
+	Trajectories = ReadVTKfiles(allfilenames);
   }
   else if (!trajectoriesFilename.empty())
   {
-    Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
+	  copyField.CaseName = 0;
+      Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
   }
   else
   {
@@ -1770,7 +1746,6 @@ int main(int argc, char* argv[])
   }
 
   // Get the intialcenter(s)
-  useAtlas = 0;
   if (useAtlas)
   {
     std::string path;
@@ -1782,7 +1757,7 @@ int main(int argc, char* argv[])
     char atlasfileName1[250];
     sprintf(atlasfileName1, "%s/atlasCenters.vtp",path.c_str());
 	atlasCenters = ReadVTKfile(atlasfileName1);
-    
+
     //Read FA map of the atlas
     char atlasfileName2[250];
 	sprintf(atlasfileName2, "%s/atlasFAMap.nhdr",path.c_str());
@@ -1827,46 +1802,28 @@ int main(int argc, char* argv[])
   {
     Centers = ReadVTKfile(centersFilename.c_str());
   }
-  /*else if (seeds.size() > 0)
-    {
-     MeshType::PointType lpsPoint;
-     std::vector<unsigned long int> CellIDs;
-     std::vector<MeshType::PointType> seedPoints;
-     for (int i=0; i<seeds.size(); ++i)
-      {
-      // convert ras to lps
-      lpsPoint[0] = -seeds[i][0];  
-      lpsPoint[1] = -seeds[i][1];
-      lpsPoint[2] =  seeds[i][2];
-      seedPoints.push_back(lpsPoint);
-     }
-      //return the cellID of the closest trajectory
-      CellIDs = findTheClosestTrajectory(Trajectories, seedPoints);
-     
-      Centers = getTrajectories(Trajectories, CellIDs);
-
-  }*/
 
   else
     {
     std::cerr << "No initial center was given" << std::endl;
     return -1;
     }
+
   //Write initial centers:
-  CopyFieldType copyField = {0,0,1,1};
+
   copyField.ClusterLabel = 0;
 
   //WriteVTKfile(Centers,initCentersFilename.c_str(),copyField);
 
   copyField.ClusterLabel = 1;
-  VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());  
+  VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());
   VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
 
   ArrayType alpha, beta, MyMinLikelihoodThr;
-  Array2DType DissimilarityMatrix, Likelihood, Prior, Posterior; //NxK 
+  Array2DType DissimilarityMatrix, Likelihood, Prior, Posterior; //NxK
 
   //EM Initialization
-  alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1); 
+  alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1);
   beta.SetSize(Centers->GetNumberOfCells()); beta.fill(5);
   Prior.SetSize(Trajectories->GetNumberOfCells(),Centers->GetNumberOfCells());
   bool havePrior = 0;
@@ -1874,10 +1831,10 @@ int main(int argc, char* argv[])
   {
     fillPriorInfo(Prior, Trajectories);
   }
-  else //in absence of an atlas   
+  else //in absence of an atlas
   {
     VariableType initp = 1.0 / (Centers->GetNumberOfCells());
-    Prior.fill(initp);  
+    Prior.fill(initp);
   }
 
   // set the space to the limits of input trajectories
@@ -1916,10 +1873,10 @@ int main(int argc, char* argv[])
       return 0; //EXIT_FAILURE;
     }
     Posterior = ComputePosterior(Likelihood,Prior);
-    UpdateModelParameters(DissimilarityMatrix,Posterior,alpha,beta,Prior,havePrior);   
+    UpdateModelParameters(DissimilarityMatrix,Posterior,alpha,beta,Prior,havePrior);
     //EM Block Ends
 
-    
+
     if (debug)
     {
       WriteVTKfile(RefinedTrajectories, "RefinedTraj.vtp", copyField);
@@ -1963,95 +1920,126 @@ int main(int argc, char* argv[])
 
   AssignClusterLabels(Trajectories,Posterior);
   copyField.FA = 0; copyField.Tensor = 1;
-  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField); 
+  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
   //Done with clustering.
 
 
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-  PerformQuantitativeAnalysis = 1;
   if (PerformQuantitativeAnalysis)
   {
-    //Compute and add diffusion scalar measures to each point on the mesh: 
+    //Compute and add diffusion scalar measures to each point on the mesh:
     ComputeScalarMeasures(Trajectories);
 
-    //Generate seperate mesh for each cluster -> cluster + center:
+    //Generate separate mesh for each cluster -> cluster + center:
     std::vector <MeshType::Pointer> cluster, center, centerWithData;
     std::vector<unsigned long int> cellId;
     std::vector <Array3DType> clusterFeatures;
+    std::stringstream currentClusterId;
     Array3DType posts;
+
     for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
+      currentClusterId<<k+1;
 
-      //Seperate cluster k'th
+      //Separate cluster k'th
       cluster.push_back(getCluster(Trajectories,k));
-     
-	  //seperate center  k'th
+
+	  //Separate center  k'th
       cellId.clear(); cellId.push_back(k);
       center.push_back(getTrajectories(oldCenters,cellId));
 
-	  //seperate posterior probabilities
+	  //Separate posterior probabilities
       posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
 
 	  //Compute the feature matrices
       clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
       if (clusterFeatures[k].at(0).rows()>0) //not empty
 	  {
-	  //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
+	    //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
 		ArrayType meanFA; //, stdFA;
 		meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TO Do: compute the weighted average
-		///////////////Returning the 2D plot is disabled for now -- generates to error/only depends on the latest SLICER ////
-    /*stdFA = stdMat(clusterFeatures[k].at(0),-1);
-		std::vector<std::string> labels;
-		labels.push_back("Arc Length");
-		labels.push_back("Mean FA");
-		labels.push_back("Standard Deviation");
-		
-		writeMCSVfile(measurement1FileName, meanFA, stdFA, labels);            // To Do: Specify different filenames 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-
-		//Add point data to the cell with the cell ID of cellId in the oldCenters mesh to get visualized with the 
-		// mean FA after loading in Slicer:
+	   //Add point data to the cell with the cell ID of cellId in the oldCenters mesh to get visualized with the
+	   // mean FA after loading in Slicer:
 		AddPointScalarToACell(oldCenters,k, meanFA );//oldCenters gets updated.
 	  }
-		centerWithData.push_back(getTrajectories(oldCenters,cellId));
 
-	  //write out the posteriors for each cluster
-      
+      centerWithData.push_back(getTrajectories(oldCenters,cellId));
+
+	  //write out the posterior for each cluster
+	  std::string filename;
 	  if (posts[k].rows()>0)
 	  {
-		char fileName1[250];
-		sprintf(fileName1, "%s/%s_posterior%d.csv",OutputDirectory.c_str(),FilePrefix.c_str(),k+1);
-		WriteCSVfile(fileName1, posts[k]);   
+		filename = OutputDirectory+"/cluster"+ currentClusterId.str() + "_posterior.csv";
+		WriteCSVfile(filename, posts[k]);
+		//now write out the feature matrices to files:
+		filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_FA.csv";
+		WriteCSVfile(filename,clusterFeatures[k].at(0));
 
-		writeCSVfilesOfFeatures(clusterFeatures[k], k , FilePrefix, OutputDirectory);
+		filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_MD.csv";
+	    WriteCSVfile(filename,clusterFeatures[k].at(1));
 
-		// Write individual files for each cluster and its center.
+	    filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_PerDiff.csv";
+	    WriteCSVfile(filename,clusterFeatures[k].at(2));
 
-		char centerName[250],clusterName[250];
-		sprintf(centerName, "%s/center%d.vtp", OutputDirectory.c_str(),k+1);
+	    filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_ParDiff.csv";
+	    WriteCSVfile(filename,clusterFeatures[k].at(3));
+
+       // Write individual files for each cluster and its center.
+        filename = OutputDirectory+"/center" + currentClusterId.str()+".vtp";
 		copyField.FA = 1; copyField.Tensor = 0;
-		WriteVTKfile(centerWithData[k],centerName,copyField);
+		WriteVTKfile(centerWithData[k],filename,copyField);
 
-		sprintf(clusterName, "%s/cluster%d.vtp", OutputDirectory.c_str(),k+1);
+		filename = OutputDirectory+"/cluster" + currentClusterId.str()+".vtp";
 		copyField.FA = 0; copyField.Tensor = 1;
-		WriteVTKfile(cluster[k], clusterName,copyField);
+		WriteVTKfile(cluster[k], filename,copyField);
+	  }
+
+	  std::vector<std::string> subjectNames;
+      std::vector<MeshType::Pointer> subClusters;
+
+	  if (populationStudy)
+	  {
+
+		  std::vector<std::string> subjectNamesInCluster =  getClusterSubjectNames(cluster[k]);
+		  std::string myfilename = OutputDirectory + "/cluster" + currentClusterId.str()+ "_subjectNames.txt";
+		  ofstream myfile;
+		  std::cout<< "Writing out "<< myfilename.c_str() << "..." << std::endl;
+		  myfile.open (myfilename.c_str());
+		  for (unsigned int m =0; m<subjectNamesInCluster.size(); m++)
+		  {
+			  myfile << subjectNamesInCluster.at(m);
+			  myfile << std::endl;
+		  }
+	      myfile.close();
+
+		  for (unsigned int sn=0; sn<allfilenames.size(); sn++)
+		  {
+			  std::string filename = itksys::SystemTools::GetFilenameName(allfilenames.at(sn));
+			  std::string subjectName = filename.substr(0,13);
+			  std::string outputfilename = OutputDirectory + "/cluster" + currentClusterId.str() + "_" + subjectName + ".vtp";
+
+			  //Generate separate meshes for each subject in the population
+		      subClusters.push_back(getCluster(cluster[k], allfilenames.at(sn)));
+              WriteVTKfile(subClusters[sn], outputfilename.c_str() ,copyField);
+
+		  }
+
 	  }
 
     }
-
+		copyField.FA = 1;
+    }
+  else
+  {
+	    copyField.FA = 0;
   }
 
   //write centers with new point data from the quantitative analysis part.
-  if (PerformQuantitativeAnalysis)
-  {copyField.FA = 1;} 
-  else
-  {copyField.FA = 0;}
-
-  copyField.Tensor = 0; 
+  copyField.Tensor = 0;
   WriteVTKfile(oldCenters, outputCentersFilename.c_str(),copyField);
 
-
-  return EXIT_SUCCESS; 
+  std::cout << "Done." << std::endl;
+  return EXIT_SUCCESS;
 }

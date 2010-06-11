@@ -57,13 +57,10 @@ else (WIN32)
 endif (WIN32)
 
 add_test(EMClusteringTest1 ${Slicer3_EXE} --launch ${PluginsPath}/EMClustering
-${Clustering_SOURCE_DIR}/Data/trajectories_test2.vtp 
 ${Clustering_BINARY_DIR}/Testing/Temporary/OutputClusters.vtp 
---initialCenters ${Clustering_SOURCE_DIR}/Data/initCenters_test2.vtp
+--trajectories ${Clustering_SOURCE_DIR}/Data/trajectories_test2.vtp --initialCenters ${Clustering_SOURCE_DIR}/Data/initCenters_test2.vtp
 --outdirectory ${Clustering_BINARY_DIR}/Testing/Temporary)
 
-
-#slicer3_install_plugins(EMClustering)
 
 # configure the resources for the atlas
 set(ATLAS_PARENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -165,18 +165,7 @@
       <description>Directory in which to save features along the fibers</description>
       <default>.</default>
     </directory>
-
-    <string>
-      <name>FilePrefix</name>
-      <label>File Prefix Name</label>
-      <flag>f</flag>
-      <longflag>prefix</longflag>
-      <description>Name to use for feature files</description>
-      <default>feature</default>
-    </string>  
-    
  
-
   </parameters>
 
   <parameters>
