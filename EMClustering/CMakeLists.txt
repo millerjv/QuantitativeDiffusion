@@ -36,9 +36,10 @@ ENDIF(VTK_FOUND)
 set (CLP EMClustering)
 set ( ${CLP}_SOURCE ${CLP}.cxx)
 
+INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 GenerateCLP(${CLP}.cxx ${CLP}.xml)
-ADD_EXECUTABLE(${CLP} ${CLP}.cxx)
+ADD_EXECUTABLE(${CLP} ${CLP}.cxx ${CLP}IO.cxx)
 TARGET_LINK_LIBRARIES( ${CLP} ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 add_library(${CLP}Lib SHARED ${${CLP}_SOURCE})
@@ -56,7 +57,7 @@ else (WIN32)
   set( PluginsPath ${Clustering_BINARY_DIR}/lib/Slicer3/Plugins/)
 endif (WIN32)
 
-add_test(EMClusteringTest1 ${Slicer3_EXE} --launch ${PluginsPath}/EMClustering
+add_test(EMClusteringTest1 ${PluginsPath}/EMClustering
 ${Clustering_BINARY_DIR}/Testing/Temporary/OutputClusters.vtp 
 --trajectories ${Clustering_SOURCE_DIR}/Data/trajectories_test2.vtp --initialCenters ${Clustering_SOURCE_DIR}/Data/initCenters_test2.vtp
 --outdirectory ${Clustering_BINARY_DIR}/Testing/Temporary)
