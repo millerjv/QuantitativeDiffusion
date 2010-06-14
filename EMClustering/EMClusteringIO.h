@@ -6,9 +6,6 @@
 #include "itkDefaultStaticMeshTraits.h"
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
-#include "itkOrientedImage.h"
-#include "itkImage.h"
-#include "itkImageRegionConstIterator.h"
 #include <itkArray2D.h>
 #include <itkDiffusionTensor3D.h>
 

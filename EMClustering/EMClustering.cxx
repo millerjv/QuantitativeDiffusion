@@ -3,86 +3,25 @@
 #endif
 //// SLICER VERSION
 #include "EMClusteringIO.h"
+#include "Registration.h"
 
-#include "itksys/SystemTools.hxx"
-#include "itksys/Glob.hxx"
-#include "itkMesh.h"
-#include "itkLineCell.h"
-#include "itkPolylineCell.h"
-#include "itkDefaultStaticMeshTraits.h"
-#include <itkDiffusionTensor3D.h> 
-#include "itkImageFileReader.h"
-#include "itkImageFileWriter.h"
-#include "itkOrientedImage.h"
-#include "itkImage.h"
-#include "itkImageRegionConstIterator.h"
-#include <itkMatrix.h>
-#include "itkLinearInterpolateImageFunction.h"
-#include "itkVectorLinearInterpolateImageFunction.h"
-#include "itkImageRegionIteratorWithIndex.h"
+
+//#include "itkImageRegionConstIterator.h"
+//#include <itkMatrix.h>
+//#include "itkLinearInterpolateImageFunction.h"
+//#include "itkVectorLinearInterpolateImageFunction.h"
+//#include "itkImageRegionIteratorWithIndex.h"
+//#include <itkExtractImageFilter.h>
+
 #include <itkDanielssonDistanceMapImageFilter.h>
-#include <itkArray2D.h>
 #include <itkBoundingBox.h>
-#include <itkExtractImageFilter.h>
 #include "vnl/vnl_gamma.h"
 
 #include "EMClusteringCLP.h"
 
-#include "itkAffineTransform.h"
-#include "itkImageRegistrationMethod.h"
-#include "itkMeanSquaresImageToImageMetric.h"
-#include "itkLinearInterpolateImageFunction.h"
-#include "itkRegularStepGradientDescentOptimizer.h"
-#include "itkCenteredTransformInitializer.h"
-#include "itkResampleImageFilter.h"
-#include "itkCastImageFilter.h"
-#include "itkSubtractImageFilter.h"
-#include "itkRescaleIntensityImageFilter.h"
-#include "itkCommand.h"
 
-typedef itk::OrientedImage<CoordinateType,PointDimension >  ImageType;
 typedef itk::Array2D<CoordinateType>                        CurveType;
 typedef itk::Array<CoordinateType>                          CurvePointType;
-
-typedef itk::AffineTransform<CoordinateType,PointDimension>            TransformType;
-typedef itk::RegularStepGradientDescentOptimizer                       OptimizerType;
-typedef itk::MeanSquaresImageToImageMetric<ImageType,ImageType>        MetricType;
-typedef itk::LinearInterpolateImageFunction<ImageType,CoordinateType>  InterpolatorType;
-typedef itk::ImageRegistrationMethod<ImageType,ImageType >             RegistrationType;
-
-
-
-class CommandIterationUpdate : public itk::Command
-{
-public:
-  typedef  CommandIterationUpdate   Self;
-  typedef  itk::Command             Superclass;
-  typedef itk::SmartPointer<Self>  Pointer;
-  itkNewMacro( Self );
-protected:
-  CommandIterationUpdate() {};
-public:
-  typedef itk::RegularStepGradientDescentOptimizer     OptimizerType;
-  typedef   const OptimizerType   *    OptimizerPointer;
-
-  void Execute(itk::Object *caller, const itk::EventObject & event)
-  {
-    Execute( (const itk::Object *)caller, event);
-  }
-
-  void Execute(const itk::Object * object, const itk::EventObject & event)
-  {
-    OptimizerPointer optimizer =
-                      dynamic_cast< OptimizerPointer >( object );
-    if( ! itk::IterationEvent().CheckEvent( &event ) )
-      {
-      return;
-      }
-      std::cout << optimizer->GetCurrentIteration() << "   ";
-      std::cout << optimizer->GetValue() << "   ";
-      std::cout << optimizer->GetCurrentPosition();
-    }
-};
 
 
 Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageType* space)
@@ -254,7 +193,7 @@ Array2DType ComputeLikelihood(const Array2DType &DissimilarityMatrix, ArrayType 
 
   for (unsigned int k=0; k<NumberOfClusters; ++k)
   {
-    if (beta[k]>0) //valid distrubution
+    if (beta[k]>0) //valid distribution
     {
       for (unsigned long int n=0; n<NumberOfTrajectories; ++n)
       {
@@ -503,7 +442,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
           {
             mesh->GetPoint(*pit, &tpoint);
             mesh->GetPointData( *pit, &tpointvalue );
-            //find the points on a single trajectory that correponde to the current point on the center
+            //find the points on a single trajectory that corresponds to the current point on the center
             if (tpointvalue.Correspondence(k)==MyLabel)
             {
               dist = tpoint.EuclideanDistanceTo(point);
@@ -524,7 +463,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
         }
         // if (pntStack.size()<3)
-        //   std::cout<<"Point "<< c <<" on the new center is obtained by aveaging less than 3 points." << std::endl;
+        //   std::cout<<"Point "<< c <<" on the new center is obtained by averaging less than 3 points." << std::endl;
         sum_points.Fill(0);
         VariableType SumPost = 0;
         for ( unsigned int m=0; m<pntStack.size(); ++m)
@@ -542,7 +481,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
           mean_point[2] = sum_points[2]/SumPost;
 
           //compute the distance between the current mean point and the previous one:
-          if (c>0 && cit>0) //not at the begining of the centerline
+          if (c>0 && cit>0) //not at the beginning of the centerline
           {
             distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
           }
@@ -562,7 +501,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
       }
 
       else
-      {//juts copy the points from the center to newcenters
+      {//just copy the points from the center to newcenters
         mesh_newcenters->SetPoint(cit,point);
         new_center->SetPointId(s,cit);
         ++cit; ++s; ++mcit;
@@ -1205,120 +1144,6 @@ void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, Arr
 
 }
 
-TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* atlasFAVolume)
-{
-  MetricType::Pointer         metric        = MetricType::New();
-  OptimizerType::Pointer      optimizer     = OptimizerType::New();
-  InterpolatorType::Pointer   interpolator  = InterpolatorType::New();
-  RegistrationType::Pointer   registration  = RegistrationType::New();
-
-  registration->SetMetric(        metric        );
-  registration->SetOptimizer(     optimizer     );
-  registration->SetInterpolator(  interpolator  );
-
-  TransformType::Pointer  transform = TransformType::New();
-  registration->SetTransform( transform );
-
-  registration->SetFixedImage(caseFAVolume );
-  registration->SetMovingImage(atlasFAVolume);
-
-  registration->SetFixedImageRegion( caseFAVolume->GetBufferedRegion() );
-
-  typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType >  TransformInitializerType;
-  TransformInitializerType::Pointer initializer = TransformInitializerType::New();
-  initializer->SetTransform(   transform );
-  initializer->SetFixedImage( caseFAVolume );
-  initializer->SetMovingImage( atlasFAVolume );
-  initializer->MomentsOn();
-  initializer->InitializeTransform();
-  registration->SetInitialTransformParameters( transform->GetParameters() );
-  double translationScale = 1.0 / 1000.0;
-  typedef OptimizerType::ScalesType       OptimizerScalesType;
-  OptimizerScalesType optimizerScales( transform->GetNumberOfParameters() );
-
-  optimizerScales[0] =  1.0;
-  optimizerScales[1] =  1.0;
-  optimizerScales[2] =  1.0;
-  optimizerScales[3] =  1.0;
-  optimizerScales[4] =  1.0;
-  optimizerScales[5] =  1.0;
-  optimizerScales[6] =  1.0;
-  optimizerScales[7] =  1.0;
-  optimizerScales[8] =  1.0;
-  optimizerScales[9]  =  translationScale;
-  optimizerScales[10] =  translationScale;
-  optimizerScales[11] =  translationScale;
-
-  optimizer->SetScales( optimizerScales );
-  unsigned int maxNumberOfIterations = 10;
-  optimizer->SetMaximumStepLength( 0.1 );
-  optimizer->SetMinimumStepLength( 0.001 );
-  optimizer->SetNumberOfIterations( maxNumberOfIterations );
-  optimizer->MinimizeOn();
-
-  //CommandIterationUpdate::Pointer observer = CommandIterationUpdate::New();
-  //optimizer->AddObserver( itk::IterationEvent(), observer );
-
-  try
-    {
-    registration->StartRegistration();
-    }
-  catch( itk::ExceptionObject & err )
-    {
-    std::cerr << "ExceptionObject caught !" << std::endl;
-    std::cerr << err << std::endl;
-    //return EXIT_FAILURE;
-    }
-  OptimizerType::ParametersType finalParameters = registration->GetLastTransformParameters();
-
-  TransformType::Pointer finalTransform = TransformType::New();
-
-  finalTransform->SetCenter( transform->GetCenter() );
-  finalTransform->SetParameters( finalParameters );
-
-  return finalTransform;
-}
-
-MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transform, std::vector<unsigned long int> CellIDs)
-{
-
-  MeshType::Pointer transformedCenters=MeshType::New();
-  CellAutoPointer aCell, MyCell;
-  long int myid =0;
-
-  for (unsigned int c=0; c<CellIDs.size(); ++c)
-  {
-    MyCell.TakeOwnership( new PolylineType );
-    MeshType::CellIdentifier CellID = CellIDs.at(c);
-    atlasCenters->GetCell(CellID, aCell);
-    CellDataType cellvalue;
-    atlasCenters->GetCellData(CellID, &cellvalue);
-    PolylineType::PointIdIterator pit = aCell->PointIdsBegin();
-    MeshType::PointType point, tpoint;
-    MeshType::PixelType pointvalue;
-    TransformType::ParametersType invTransParams;
-    TransformType::Pointer invTransform = TransformType::New();
-    invTransParams = transform->GetInverseTransform()->GetParameters();
-    invTransform->SetCenter( transform->GetCenter() );
-    invTransform->SetParameters( invTransParams );
-    for (unsigned int j=0; j < aCell->GetNumberOfPoints(); j++)
-    {
-      atlasCenters->GetPoint(*pit, &point);
-      atlasCenters->GetPointData(*pit, &pointvalue);
-      //tpoint = transform->GetInverseTransform()->TransformPoint(point);
-      tpoint = invTransform->TransformPoint(point);
-      transformedCenters->SetPoint(myid, tpoint );
-      transformedCenters->SetPointData(myid, pointvalue );
-      MyCell->SetPointId(j,myid);
-      pit++; myid++;
-    }
-    transformedCenters->SetCell(c, MyCell);
-    transformedCenters->SetCellData(c, cellvalue);
-
-  }
-
-  return transformedCenters;
-}
 
 
 int main(int argc, char* argv[])
