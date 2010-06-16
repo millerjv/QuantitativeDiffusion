@@ -25,16 +25,15 @@
     </geometry>
     
     <boolean>
-      <name>populationStudy</name>
+      <name>population</name>
       <label>Population Study?</label>
       <description>Clustering a poulation of subjects?</description>
       <longflag>population</longflag>
-      <default>1</default>
     </boolean> 
 
     <directory>
       <name>TractsDir</name>
-      <longflag>populationDir</longflag>
+      <longflag>population_directory</longflag>
       <label>Tract Files</label>
       <description>Directory which includes a collection of vtk/vtp files of tracts to be studied </description>
       <default>/fs/corpus1/asset24_cluster_pilot/tracts/ped-icap_l</default>
@@ -49,18 +48,17 @@
     </geometry>
     
     <boolean>
-      <name>useAtlas</name>
+      <name>use_atlas</name>
       <label>Use an atlas?</label>
       <description>Should an atlas be used in clustering</description>
       <longflag>use_atlas</longflag>
-      <default>0</default>
     </boolean> 
 
     <directory>
-      <name>AtlasDir</name>
+      <name>atlas_directory</name>
       <flag>a</flag>
-      <longflag>atlas</longflag>
-      <label>Atlas</label>
+      <longflag>atlas_directory</longflag>
+      <label>Atlas Directory</label>
       <description>Use an atlas to seed the clustering. Atlases are specified as a directory containing the atlas description: an FA map called atlasFAMap.nhdr and set of initial centers representing the structures to cluster call atlasCenters.vtp.</description>
       <default>../Clustering/Atlas</default>
     </directory>
@@ -69,7 +67,7 @@
       <name>subjectFAFilename</name>
       <label>Subject's FA Volume</label>
       <channel>input</channel>
-      <longflag>FA</longflag>
+      <longflag>fa_volume</longflag>
       <description>Subject's FA volume needs to be given if using an atlas.</description>
     </image>
 
@@ -109,7 +107,7 @@
       <name>centersFilename</name>
       <label>Initial Centers</label>
       <channel>input</channel>
-      <longflag>initialCenters</longflag>
+      <longflag>initialcenters</longflag>
       <description>Initial cluster centerlines. Leave it empty if you are using an atlas. </description>
     </geometry>
 
@@ -134,7 +132,7 @@
       <name>outputCentersFilename</name>
       <label>Output Centers</label>
       <channel>output</channel>
-      <longflag>outputCenters</longflag>
+      <longflag>output_centers</longflag>
       <description>Cluster centers</description>
       <default>centers.vtp</default>
     </geometry>
@@ -150,18 +148,17 @@
 -->
 
     <boolean>
-      <name>PerformQuantitativeAnalysis</name>
+      <name>analysis</name>
       <label>Perform Quantitative Analysis</label>
-      <longflag>quant</longflag>
+      <longflag>analysis</longflag>
       <description>Perform tract-oriented quantitative analysis?</description>
-      <default>true</default>
     </boolean> 
 
   <directory>
       <name>OutputDirectory</name>
       <label>Output Directory</label>
       <channel>output</channel>
-      <longflag>outdirectory</longflag>
+      <longflag>output_directory</longflag>
       <description>Directory in which to save features along the fibers</description>
       <default>.</default>
     </directory>
@@ -182,7 +179,7 @@
         <step>1</step>
       </constraints>
       <flag>l</flag>
-      <longflag>min_like</longflag>
+      <longflag>min_likelihood</longflag>
       <description> This parameter controls the homogeneity of trajectories in a cluster. It defines the minimum likelihood threshold on cluster probability membership. Increase the number for more compact bundles (Range 1-5) </description>
     </float>
   </parameters>
@@ -195,7 +192,7 @@
       <name>spacing</name>
       <label>Space resolution</label>
       <flag>s</flag>
-      <longflag>res</longflag>
+      <longflag>resolution</longflag>
       <default>2.5,2.5,2.5</default>
       <description>Space resolution for Distance Map calculation</description>
     </double-vector>
@@ -206,7 +203,7 @@
       <!-- <channel>input</channel> -->
       <default>5</default>
       <flag>i</flag>
-      <longflag>maxIter</longflag>
+      <longflag>max_iterations</longflag>
       <description>Maximum number of EM iterations</description>
     </integer>
 
@@ -214,7 +211,7 @@
       <name>transformedCentersFilename</name>
       <label>Transformed Initial Centers From The Atlas</label>
       <channel>output</channel>
-      <longflag>transInitCenters</longflag>
+      <longflag>transormed_initalcenters</longflag>
       <description>Returns the transforme initial cluster centers if using an atlas </description>
       <default>transformedCenters.vtp</default>
     </geometry>
