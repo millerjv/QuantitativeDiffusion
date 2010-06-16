@@ -5,6 +5,11 @@
 #include "EMClusteringIO.h"
 #include "Registration.h"
 
+#include <itkDanielssonDistanceMapImageFilter.h>
+#include <itkBoundingBox.h>
+#include "vnl/vnl_gamma.h"
+
+#include "EMClusteringCLP.h"
 
 //#include "itkImageRegionConstIterator.h"
 //#include <itkMatrix.h>
@@ -12,12 +17,6 @@
 //#include "itkVectorLinearInterpolateImageFunction.h"
 //#include "itkImageRegionIteratorWithIndex.h"
 //#include <itkExtractImageFilter.h>
-
-#include <itkDanielssonDistanceMapImageFilter.h>
-#include <itkBoundingBox.h>
-#include "vnl/vnl_gamma.h"
-
-#include "EMClusteringCLP.h"
 
 
 typedef itk::Array2D<CoordinateType>                        CurveType;
@@ -989,7 +988,7 @@ ArrayType meanMat(const Array2DType &X, int nanVal=0)
 
     aCol = X.get_column(c);
 
-    // if there is no NAN in the colume:   (here we assume that the nanVal is 0 or a negative number.
+    // if there is no NAN in the column:   (here we assume that the nanVal is 0 or a negative number.
     if (aCol.min_value() != nanVal)
     {
       mX(c) = aCol.mean();
@@ -1034,7 +1033,7 @@ ArrayType stdMat(const Array2DType &X, int nanVal=0)
 
     aCol = X.get_column(c);
 
-    // if there is no NAN in the colume:   (here we assume that the nanVal is 0 or a negative number.
+    // if there is no NAN in the column:   (here we assume that the nanVal is 0 or a negative number.
     if (aCol.min_value() != nanVal)
     {
 		mX(c) = (aCol - aCol.mean()).rms();
@@ -1154,15 +1153,15 @@ int main(int argc, char* argv[])
   MeshType::Pointer    Trajectories, Centers, atlasCenters;
   MeshType::Pointer    oldCenters = MeshType::New();
 
-  populationStudy=0;
-  useAtlas = 0;
-  PerformQuantitativeAnalysis = 1;
+  //population=0;
+  //use_atlas = 0;
+  //analysis = 1;
   CopyFieldType copyField = {0,0,1,1,0};
 
   // Get the input trajectories
 
   std::vector<std::string> allfilenames;
-  if (populationStudy)
+  if (population)
   {
 	copyField.CaseName = 1;
 	itksys::Glob allfiles;
@@ -1183,13 +1182,13 @@ int main(int argc, char* argv[])
   }
 
   // Get the intialcenter(s)
-  if (useAtlas)
+  if (use_atlas)
   {
     std::string path;
-    if (AtlasDir[0] == '.')
+    if (atlas_directory[0] == '.')
     {
       path = itksys::SystemTools::GetFilenamePath(argv[0]);
-      path = path + "/" + AtlasDir;
+      path = path + "/" + atlas_directory;
     }
     char atlasfileName1[250];
     sprintf(atlasfileName1, "%s/atlasCenters.vtp",path.c_str());
@@ -1364,7 +1363,7 @@ int main(int argc, char* argv[])
   //////////////////////////////////////////////////////////////////////
   //Start Quantitative Analysis:
   //////////////////////////////////////////////////////////////////////
-  if (PerformQuantitativeAnalysis)
+  if (analysis)
   {
     //Compute and add diffusion scalar measures to each point on the mesh:
     ComputeScalarMeasures(Trajectories);
@@ -1436,7 +1435,7 @@ int main(int argc, char* argv[])
 	  std::vector<std::string> subjectNames;
       std::vector<MeshType::Pointer> subClusters;
 
-	  if (populationStudy)
+	  if (population)
 	  {
 
 		  std::vector<std::string> subjectNamesInCluster =  getClusterSubjectNames(cluster[k]);
