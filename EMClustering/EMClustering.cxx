@@ -4,23 +4,19 @@
 //// SLICER VERSION
 #include "EMClusteringIO.h"
 #include "Registration.h"
+#include "myMaths.h"
 
 #include <itkDanielssonDistanceMapImageFilter.h>
 #include <itkBoundingBox.h>
-#include "vnl/vnl_gamma.h"
+
 
 #include "EMClusteringCLP.h"
 
 //#include "itkImageRegionConstIterator.h"
-//#include <itkMatrix.h>
 //#include "itkLinearInterpolateImageFunction.h"
 //#include "itkVectorLinearInterpolateImageFunction.h"
 //#include "itkImageRegionIteratorWithIndex.h"
 //#include <itkExtractImageFilter.h>
-
-
-typedef itk::Array2D<CoordinateType>                        CurveType;
-typedef itk::Array<CoordinateType>                          CurvePointType;
 
 
 Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageType* space)
@@ -172,43 +168,6 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
   return DissimilarityMeasure; //NxK
 }
 
-
-VariableType Gamma(VariableType x, VariableType alpha, VariableType beta)
-{
-  VariableType gammaPdf;
-
-  gammaPdf = 1/(vnl_gamma(alpha)*pow(beta,alpha))*pow(x,(alpha-1))*exp(-x/beta);
-
-  return gammaPdf;
-}
-
-Array2DType ComputeLikelihood(const Array2DType &DissimilarityMatrix, ArrayType alpha, ArrayType beta)
-{
-  unsigned int NumberOfClusters = DissimilarityMatrix.cols();
-  unsigned int NumberOfTrajectories = DissimilarityMatrix.rows();
-
-  Array2DType Likelihood;
-  Likelihood.SetSize(NumberOfTrajectories,NumberOfClusters);
-
-  for (unsigned int k=0; k<NumberOfClusters; ++k)
-  {
-    if (beta[k]>0) //valid distribution
-    {
-      for (unsigned long int n=0; n<NumberOfTrajectories; ++n)
-      {
-        VariableType x = DissimilarityMatrix(n,k);
-        Likelihood[n][k] = Gamma(x,alpha[k],beta[k]);
-      }
-    }
-    else
-    {
-      const VariableType z = 0;
-      Likelihood.set_column(k,z);
-    }
-  }
-  return Likelihood; //NxK
-}
-
 MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMatrix, Array2DType &Likelihood, Array2DType &Prior, ArrayType MyMinLikelihoodThr, bool havePrior)
 {
 
@@ -288,31 +247,7 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
 
   return RefinedMesh;
 }
-Array2DType ComputePosterior(const Array2DType &Likelihood, const Array2DType &Prior)
-{
-  Array2DType Posterior;
-  Posterior = element_product(Likelihood, Prior);
-  //now normalize it:
-  if (Likelihood.cols() == 1)
-  {
-    Posterior /= Posterior.max_value();
-  }
 
-  else if (Likelihood.cols() > 1)
-  {
-    for (unsigned int r = 0; r<Posterior.rows(); ++r)
-    {
-      VariableType n = Posterior.get_row(r).sum();
-      if (n>0)
-      {
-        Posterior.scale_row(r, 1/n);
-      }
-    }
-  }
-
-  //std::cout<< Posterior << std::endl;
-  return Posterior; //NxK
-}
 
 void UpdateModelParameters(const Array2DType &DissimilarityMatrix, const Array2DType &Posterior, ArrayType& alpha, ArrayType& beta, Array2DType& W, bool havePrior)
 {
@@ -406,7 +341,8 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     PolylineType::PointIdIterator mcit = Centerline->PointIdsBegin();
     ImageType::IndexType ind;
     MeshType::PointType point, last_mean_point;
-    VariableType distBetweenSuccessivePoints =0.5;
+    VariableType distBetweenSuccessivePointsOnCenter =0.5;
+    VariableType distBetweenSuccessivePoints = distBetweenSuccessivePointsOnCenter;
 
 
     int MyLabel;
@@ -484,7 +420,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
           {
             distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
           }
-          if (distBetweenSuccessivePoints>=0.5)     /////// parameter: dist between the samples!
+          if (distBetweenSuccessivePoints>= distBetweenSuccessivePointsOnCenter)
           {
             mesh_newcenters->SetPoint(cit,mean_point);
             new_center->SetPointId(s,cit);
@@ -513,37 +449,6 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
   return mesh_newcenters;
 }
 
-CurveType SmoothCurve(CurveType Curve)
-{
-  CurveType SmoothedCurve;
-  int NumberOfPoints = Curve.rows();
-  SmoothedCurve.set_size(NumberOfPoints,3);
-  int window = 5;  //radius
-  for (int j=0; j<NumberOfPoints; ++j)
-  {
-    CurvePointType sumPoints;
-    sumPoints.set_size(3);
-    sumPoints.fill(0);
-    int el =0,low,up;
-    if  ((j-window)<0)
-    {
-      low=0;
-    }
-    else
-    {
-      low =(j-window);
-    }
-
-    if  (NumberOfPoints<(j+window)) up=NumberOfPoints; else up =(j+window);
-    for (int i=low; i< up; ++i)
-    {
-      sumPoints += Curve.get_row(i); el++;
-    }
-    SmoothedCurve.set_row(j, sumPoints/el);
-  }
-  //std::cout << SmoothedCurve <<std::endl;
-  return SmoothedCurve;
-}
 
 MeshType::Pointer SmoothMesh(MeshType* mesh)
 {
@@ -569,7 +474,7 @@ MeshType::Pointer SmoothMesh(MeshType* mesh)
       pit++;
     }
 
-    SmoothedCurve = SmoothCurve(MyCurve);
+    SmoothedCurve = SmoothAndResampleCurve(MyCurve, 0.5);
     //Put the new curve in the mesh:
     for (unsigned int j=0; j < SmoothedCurve.rows(); ++j)
     {
@@ -584,19 +489,6 @@ MeshType::Pointer SmoothMesh(MeshType* mesh)
     smoothedMesh->SetCell(k,newCell);
   }
   return smoothedMesh;
-}
-
-VariableType diffCurve(CurveType MyCurve1, CurveType MyCurve2) //simplest implementation
-{
-  VariableType dist = 0;
-  CurvePointType p1,p2;
-  for (unsigned int l = 0; l< MyCurve2.rows(); ++l)
-  {
-    p2 = MyCurve2.get_row(l);
-    p1 = MyCurve1.get_row(l);
-    dist+=(p1 - p2).two_norm();
-  }
-  return dist/MyCurve2.rows();
 }
 
 ArrayType diffMeshes(const MeshType* mesh1, const MeshType* mesh2)
@@ -967,7 +859,7 @@ ImageType::Pointer getSubSpace(const MeshType* Trajectories, std::vector<double>
   return subSpace;
 }
 
-void  fillPriorInfo(Array2DType &Prior, MeshType* Trajectories)
+void  setPriorInfo(Array2DType &Prior, MeshType* Trajectories)
 {
   for (unsigned long int t=0; t<Trajectories->GetNumberOfCells(); ++t)
   {
@@ -975,156 +867,6 @@ void  fillPriorInfo(Array2DType &Prior, MeshType* Trajectories)
     Trajectories->GetCellData(t, &cellvalue);
     Prior.set_row(t, cellvalue.atlasPriors);
   }
-}
-
-ArrayType meanMat(const Array2DType &X, int nanVal=0)
-//take the column-wise mean of the matrix X, ignoring the zero elements.
-{
-  ArrayType mX;
-  mX.SetSize(X.cols());
-  ArrayType aCol;
-  for (unsigned int c = 0; c<X.cols(); c++)
-  {
-
-    aCol = X.get_column(c);
-
-    // if there is no NAN in the column:   (here we assume that the nanVal is 0 or a negative number.
-    if (aCol.min_value() != nanVal)
-    {
-      mX(c) = aCol.mean();
-    }
-    else
-    {
-      double s = 0;
-      unsigned int n = 0;
-      for (unsigned int i =0; i<aCol.Size(); i++)
-      {
-        if (aCol(i)!= nanVal)
-        {
-          s+=aCol(i);
-          n++;
-        }
-      }
-      if (n!=0)
-      {
-        mX(c) = s/n;
-      }
-      else
-      {
-        //
-        mX(c)=0;
-        std::cout << "NaN column at " << c << "!" <<std::endl;
-      }
-    }
-
-  }
-
-  return mX;
-}
-
-ArrayType stdMat(const Array2DType &X, int nanVal=0)
-//take the column-wise std of the matrix X, ignoring the nonVal elements.
-{
-  ArrayType mX;
-  mX.SetSize(X.cols());
-  ArrayType aCol;
-  for (unsigned int c = 0; c<X.cols(); c++)
-  {
-
-    aCol = X.get_column(c);
-
-    // if there is no NAN in the column:   (here we assume that the nanVal is 0 or a negative number.
-    if (aCol.min_value() != nanVal)
-    {
-		mX(c) = (aCol - aCol.mean()).rms();
-    }
-    else
-    {
-      double s = 0;
-      unsigned int n = 0;
-      for (unsigned int i =0; i<aCol.Size(); i++)
-      {
-        if (aCol(i)!= nanVal)
-        {
-          s+=aCol(i);
-          n++;
-        }
-      }
-      if (n!=0)
-      {
-         double meanVal =  s/n;
-		 double ms = 0;
-		 for (unsigned int i =0; i<aCol.Size(); i++)
-			{
-			if (aCol(i)!= nanVal)
-			{
-				ms+=(aCol(i)-meanVal)*(aCol(i)-meanVal);
-
-			}
-			}
-
-
-		mX(c) = sqrt(ms/n);
-
-      }
-      else
-      {
-        //
-        mX(c)=0;
-        std::cout << "NaN column at " << c << "!" <<std::endl;
-      }
-    }
-
-  }
-
-  return mX;
-}
-
-
-ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
-//take the column-wise 'weighted mean' of the matrix X, ignoring the zero elements.
-{
-  X = element_product(X, P);   //x = x.p(x)
-  ArrayType mX;
-  mX.SetSize(X.cols());
-  ArrayType aCol;
-  for (unsigned int c = 0; c<X.cols(); c++)
-  {
-
-    aCol = X.get_column(c);
-    VariableType s;
-
-    if (aCol.min_value() != nanVal)
-    {
-      s = aCol.sum();
-      mX(c) = s/P.get_column(c).sum();
-    }
-    else
-    {
-      VariableType n = 0;
-      for (unsigned int i =0; i<aCol.Size(); i++)
-      {
-        if (aCol(i) != nanVal)
-        {
-          n+= P.get_column(c).get(i);
-          s+= aCol(i);
-        }
-
-      }
-      if (n!=0)
-      {
-        mX(c) = s/n;
-      }
-      else
-      {
-        mX(c)=0;
-        std::cout << "NaN column at " << c << "!" <<std::endl;
-      }
-    }
-
-  }
-
-  return mX;
 }
 
 void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, ArrayType f)
@@ -1156,6 +898,8 @@ int main(int argc, char* argv[])
   //population=0;
   //use_atlas = 0;
   //analysis = 1;
+  //
+  bool debug = 1;
   CopyFieldType copyField = {0,0,1,1,0};
 
   // Get the input trajectories
@@ -1190,16 +934,15 @@ int main(int argc, char* argv[])
       path = itksys::SystemTools::GetFilenamePath(argv[0]);
       path = path + "/" + atlas_directory;
     }
-    char atlasfileName1[250];
-    sprintf(atlasfileName1, "%s/atlasCenters.vtp",path.c_str());
-	atlasCenters = ReadVTKfile(atlasfileName1);
+    std::string atlasFilename;
+    atlasFilename = path + "/atlasCenters.vtp";
+	atlasCenters = ReadVTKfile(atlasFilename);
 
     //Read FA map of the atlas
-    char atlasfileName2[250];
-	sprintf(atlasfileName2, "%s/atlasFAMap.nhdr",path.c_str());
+    atlasFilename = path +"/atlasFAMap.nhdr";
     typedef itk::ImageFileReader< ImageType > ReaderType;
     ReaderType::Pointer reader = ReaderType::New();
-    reader->SetFileName(atlasfileName2);
+    reader->SetFileName(atlasFilename);
     reader->Update();
     ImageType::Pointer atlasFAVolume = reader->GetOutput();
     //Read FA map of the case
@@ -1245,14 +988,13 @@ int main(int argc, char* argv[])
     return -1;
     }
 
-  //Write initial centers:
-
-  copyField.ClusterLabel = 0;
-
-  //WriteVTKfile(Centers,initCentersFilename.c_str(),copyField);
-
   copyField.ClusterLabel = 1;
   VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());
+  // If the number of clusters is 1:
+  if (MinPost>0.5)
+  {
+	  MinPost = 0.5;
+  }
   VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
 
   ArrayType alpha, beta, MyMinLikelihoodThr;
@@ -1265,7 +1007,7 @@ int main(int argc, char* argv[])
   bool havePrior = 0;
   if (havePrior)
   {
-    fillPriorInfo(Prior, Trajectories);
+    setPriorInfo(Prior, Trajectories);
   }
   else //in absence of an atlas
   {
@@ -1279,11 +1021,12 @@ int main(int argc, char* argv[])
 
   ///// START /////
 
-  bool debug = 0;
   ArrayType dd;
   for (int i=0; i<maxNumberOfIterations; ++i)
   {
     std::cout<< "Iteration  " << i+1 << std::endl;
+    std::stringstream currentIteration;
+    currentIteration << i+1;
     DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace);
     if (debug)
     {
@@ -1315,14 +1058,15 @@ int main(int argc, char* argv[])
 
     if (debug)
     {
-      WriteVTKfile(RefinedTrajectories, "RefinedTraj.vtp", copyField);
-      std::cout<< Posterior << std::endl;
-      std::cout<< "alpha = " << alpha << std::endl;
-      std::cout<< "beta = " << beta << std::endl;
+    	std::string tempFilename;
+    	tempFilename = OutputDirectory + "/trajectories_iter" + currentIteration.str() +".vtp";
+        WriteVTKfile(RefinedTrajectories, tempFilename, copyField);
+        //std::cout<< Posterior << std::endl;
+        std::cout<< "alpha = " << alpha << std::endl;
+        std::cout<< "beta = " << beta << std::endl;
 
-      char fileName[250];
-      sprintf(fileName, "%s/posterior%d.csv", OutputDirectory.c_str(),i+1);
-      WriteCSVfile(fileName, Posterior);
+        tempFilename = OutputDirectory + "/posterior_iteration" + currentIteration.str() +".csv";
+        WriteCSVfile(tempFilename, Posterior);
     }
 
     //Update centers:
@@ -1335,10 +1079,10 @@ int main(int argc, char* argv[])
 
     if (debug)
     {
-      char tempcenterName[250];
-      sprintf(tempcenterName, "%s/centers_iter%d.vtp", OutputDirectory.c_str(),i+1);
+      std::string tempFilename;
+      tempFilename = OutputDirectory + "/centers_iteration" + currentIteration.str() +".vtp";
       copyField.FA = 0; copyField.Tensor = 0;
-      WriteVTKfile(NewCenters,tempcenterName,copyField);
+      WriteVTKfile(NewCenters,tempFilename,copyField);
     }
 
 
@@ -1372,12 +1116,13 @@ int main(int argc, char* argv[])
     std::vector <MeshType::Pointer> cluster, center, centerWithData;
     std::vector<unsigned long int> cellId;
     std::vector <Array3DType> clusterFeatures;
-    std::stringstream currentClusterId;
+
     Array3DType posts;
 
     for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
     {
-      currentClusterId<<k+1;
+    	 std::stringstream currentClusterId;
+         currentClusterId<<k+1;
 
       //Separate cluster k'th
       cluster.push_back(getCluster(Trajectories,k));

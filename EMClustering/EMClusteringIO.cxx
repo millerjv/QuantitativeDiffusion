@@ -220,6 +220,7 @@ void addMesh(MeshType* popMesh, MeshType* caseMesh, const std::string caseName)
         }
 
         caseMesh->GetCellData(i, &cellvalue);
+        cellvalue.CaseName = caseName;
         popMesh->SetCell(citNew, copiedtrajectory);
         popMesh->SetCellData(citNew, cellvalue);
         citNew++;

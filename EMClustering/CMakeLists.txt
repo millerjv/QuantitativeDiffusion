@@ -39,7 +39,7 @@ set ( ${CLP}_SOURCE ${CLP}.cxx)
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 GenerateCLP(${CLP}.cxx ${CLP}.xml)
-ADD_EXECUTABLE(${CLP} ${CLP}.cxx ${CLP}IO.cxx Registration.cxx)
+ADD_EXECUTABLE(${CLP} ${CLP}.cxx ${CLP}IO.cxx Registration.cxx myMaths.cxx)
 TARGET_LINK_LIBRARIES( ${CLP} ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 add_library(${CLP}Lib SHARED ${${CLP}_SOURCE})
