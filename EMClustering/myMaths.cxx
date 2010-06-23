@@ -290,7 +290,7 @@ CurveType SmoothAndResampleCurve(CurveType Curve, float ds)
 		 targets->InsertElement( i, target );
 		}
 
-  transform->SetStiffness(0);
+  transform->SetStiffness(0.001);
   //A stiffness of zero results in the standard interpolating spline.
   //non-zero stiffness allows the spline to approximate rather than interpolate the landmarks.
   //Stiffness values are usually rather small, typically in the range of 0.001 to 0.1.
@@ -303,12 +303,10 @@ CurveType SmoothAndResampleCurve(CurveType Curve, float ds)
   unsigned int NumberOfPoints = static_cast<unsigned int> (s.at(s.size()-1)/ds);
   smoothedCurve.set_size(NumberOfPoints,3);
 
-  for (unsigned int i = 0; i< NumberOfPoints; i++)   //check the size of vectors
+  for (unsigned int i = 0; i< NumberOfPoints; i++)
   {
-	  temp_point[0]= i*ds/s.at(s.size()-1); temp_point[1] =0; temp_point[2]=0;
-	  //std::cout << temp_point << std::endl;
+	  temp_point[0]= static_cast<float> (i)/(NumberOfPoints-1); temp_point[1] =0; temp_point[2]=0;
 	  temp_outputpoint = transform->TransformPoint(temp_point);
-	  //std::cout << temp_outputpoint << std::endl;
 	  smoothedCurve.set_row(i, temp_outputpoint.GetVnlVector() );
   }
 

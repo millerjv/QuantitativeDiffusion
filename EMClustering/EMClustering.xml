@@ -215,24 +215,19 @@
       <description>Returns the transforme initial cluster centers if using an atlas </description>
       <default>transformedCenters.vtp</default>
     </geometry>
-
-
-
-    <!--
+    
     <float>
-      <name>MinPost</name>
-      <label>Minimum Posterior</label>
-      <default>0.1</default>
+      <name>samplesDistance</name>
+      <label>Distance between landmarks</label>
+      <default>1.0</default>
       <constraints>
-        <minimum>0.01</minimum>
-        <maximum>0.9</maximum>
-        <step>0.01</step>
+        <minimum>0.1</minimum>
+        <maximum>2</maximum>
+        <step>0.1</step>
       </constraints>
-      <flag>p</flag>
-      <longflag>min_post</longflag>
-      <description>Minimum posterior specifies which trajectories contribute to generating new centers</description>
+      <longflag>samples_distance</longflag>
+      <description>Specifies the distance between the landmarks in (mm) on the centers for quantitative analysis </description>
     </float>
-    -->
     
     <float>
       <name>MaxDist</name>

@@ -450,7 +450,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 }
 
 
-MeshType::Pointer SmoothMesh(MeshType* mesh)
+MeshType::Pointer SmoothMesh(MeshType* mesh, float distanceBetweenSamples)
 {
   MeshType::Pointer smoothedMesh = MeshType::New();
   unsigned int NumberOfCells = mesh->GetNumberOfCells();
@@ -473,8 +473,8 @@ MeshType::Pointer SmoothMesh(MeshType* mesh)
       MyCurve.set_row(j, point.GetVnlVector());
       pit++;
     }
-
-    SmoothedCurve = SmoothAndResampleCurve(MyCurve, 0.5);
+    SmoothedCurve = SmoothCurve(MyCurve);
+    SmoothedCurve = SmoothAndResampleCurve(SmoothedCurve, distanceBetweenSamples);
     //Put the new curve in the mesh:
     for (unsigned int j=0; j < SmoothedCurve.rows(); ++j)
     {
@@ -899,7 +899,7 @@ int main(int argc, char* argv[])
   //use_atlas = 0;
   //analysis = 1;
   //
-  bool debug = 1;
+  bool debug = 0;
   CopyFieldType copyField = {0,0,1,1,0};
 
   // Get the input trajectories
@@ -1021,6 +1021,10 @@ int main(int argc, char* argv[])
 
   ///// START /////
 
+  // Resample initial centers:
+  Centers = SmoothMesh(Centers, samplesDistance);
+
+
   ArrayType dd;
   for (int i=0; i<maxNumberOfIterations; ++i)
   {
@@ -1075,7 +1079,7 @@ int main(int argc, char* argv[])
 
     //Smooth centers:
     MeshType::Pointer SmoothedCenters;
-    SmoothedCenters = SmoothMesh(NewCenters);
+    SmoothedCenters = SmoothMesh(NewCenters, samplesDistance);
 
     if (debug)
     {
@@ -1083,6 +1087,9 @@ int main(int argc, char* argv[])
       tempFilename = OutputDirectory + "/centers_iteration" + currentIteration.str() +".vtp";
       copyField.FA = 0; copyField.Tensor = 0;
       WriteVTKfile(NewCenters,tempFilename,copyField);
+      tempFilename = OutputDirectory + "/smoothed_centers_iteration" + currentIteration.str() +".vtp";
+      copyField.FA = 0; copyField.Tensor = 0;
+      WriteVTKfile(SmoothedCenters,tempFilename,copyField);
     }
 
 
