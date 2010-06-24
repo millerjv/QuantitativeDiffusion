@@ -193,7 +193,8 @@
       <label>Space resolution</label>
       <flag>s</flag>
       <longflag>resolution</longflag>
-      <default>2.5,2.5,2.5</default>
+      #<default>2.5,2.5,2.5</default>
+      <default>1.0,1.0,1.0</default>
       <description>Space resolution for Distance Map calculation</description>
     </double-vector>
 
@@ -219,7 +220,7 @@
     <float>
       <name>samplesDistance</name>
       <label>Distance between landmarks</label>
-      <default>1.0</default>
+      <default>2.5</default>
       <constraints>
         <minimum>0.1</minimum>
         <maximum>2</maximum>
