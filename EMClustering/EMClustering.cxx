@@ -33,6 +33,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
   {
     // Build a distance map for each cluster center
     space->FillBuffer(0);
+    int myCurrentLabel =0;
 
     // Mark up the voxels of the centerlines on the image
     CellAutoPointer Centerline;
@@ -49,23 +50,12 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       if (space->TransformPhysicalPointToIndex(point, ind))
       {
         outOfSpace = 0;
-        space->SetPixel(ind,space->ComputeOffset(ind));
-        //This part tries to populate the unique labels in MyLabels along each center
-        if (MyLabels.size()==0)
-        {
-          MyLabels.push_back(space->ComputeOffset(ind));
-        }
-        else
-        {
-          if (!(MyLabels.at(MyLabels.size()-1)==space->ComputeOffset(ind)))
-          {
-            MyLabels.push_back(space->ComputeOffset(ind));
-          }
-          else
-          {
-        	std::cout << "Warning! the resolution of your space is lower than than the center's parameterization"  << std::endl;
-          }
-        }
+        myCurrentLabel++;
+        //space->SetPixel(ind,space->ComputeOffset(ind));
+        space->SetPixel(ind,myCurrentLabel);
+
+        //populate the labels in MyLabels along each center
+        MyLabels.push_back(myCurrentLabel);
       }
       else
       {
@@ -113,6 +103,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
         VariableType sumdist = 0;
         std::vector<long int> MyLabelsOnTrajectory;
         MyLabelsOnTrajectory.clear();
+        long int lastLabel = 0;
 
         for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
         {
@@ -128,8 +119,21 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 				pointvalue.Correspondence.set_size(NumberOfClusters);
 				//1st output -- the correspondence info is going to be used in updating
 				//the centers and further quantitative analysis.
-				pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
-				MyLabelsOnTrajectory.push_back(VoronoiMap->GetPixel(ind));
+				long int  tempLabel = VoronoiMap->GetPixel(ind);
+				if (tempLabel< lastLabel)
+				{
+					pointvalue.Correspondence[ClusterIdx] = -100; //NaN
+				}
+				else
+				{
+			        if (tempLabel != lastLabel)
+					{
+			        	MyLabelsOnTrajectory.push_back(tempLabel);
+					}
+			        pointvalue.Correspondence[ClusterIdx] = tempLabel;
+			        lastLabel = tempLabel;
+				}
+				//pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
 				mesh->SetPointData( *pit, pointvalue );
         	}
         	else
@@ -139,26 +143,15 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 
         	++pit;
         }
-        // Now compute the miss-matches between the labels on the centers and trajectories:
-        int LabelExisted = 0;
-        for (unsigned int m=0; m < MyLabels.size(); ++m)
-        {
-          for (unsigned int n=0; n < MyLabelsOnTrajectory.size(); ++n)
-            if (MyLabels.at(m) == MyLabelsOnTrajectory.at(n))
-            {
-              LabelExisted ++;
-              break;
-            }
-        }
-
 
         VariableType AveDist = sumdist/(atrajectory->GetNumberOfPoints());
-        VariableType missMatch = (VariableType)(MyLabels.size() - LabelExisted)/MyLabels.size()*AveDist;
+
+        // !!!!!!!!!!!!!!!!!!!!!!!!To be fixed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!:
+
+        VariableType missMatch = (VariableType)(MyLabels.size() - MyLabelsOnTrajectory.size())/MyLabels.size()*AveDist;
         //2nd output
         DissimilarityMeasure[t][ClusterIdx] = (AveDist + missMatch);
-        // std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " "<<LabelExisted<<" "<< missMatch<<std::endl;
-        LabelExisted = 0;
-
+        //std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " " <<missMatch<<" " << (AveDist + 2* missMatch)<<std::endl;
       }
     }
     else
@@ -348,104 +341,105 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     VariableType distBetweenSuccessivePoints = distBetweenSuccessivePointsOnCenter;
 
 
-    int MyLabel;
+    int MyLabel, currentLabel=0;
     unsigned int s=0;
     for (unsigned int c=0; c<Centerline->GetNumberOfPoints(); ++c)
     {
       mesh_centers->GetPoint(*mcit, &point);
-      refImage->TransformPhysicalPointToIndex(point, ind);
-      MyLabel = refImage->ComputeOffset(ind);
-
-      MeshType::PixelType tpointvalue;
-      std::vector<MeshType::PointType> pntStack;
-      std::vector<VariableType> postStack;
-
-      MeshType::PointType tpoint, mean_point,sum_points, closest_point;
-      VariableType dist,closest_point_post;
-      pntStack.clear();
-      postStack.clear();
-
-      if (sigIDs.size()>0)
+      if(refImage->TransformPhysicalPointToIndex(point, ind))
       {
-        //update the center by taking the average of trajectories
+        //MyLabel = refImage->ComputeOffset(ind);
+    	  MyLabel = currentLabel++;
+    	  MeshType::PixelType tpointvalue;
+    	  std::vector<MeshType::PointType> pntStack;
+    	  std::vector<VariableType> postStack;
 
-        for (unsigned long int t=0; t<sigIDs.size(); ++t)
-        {
-          CellAutoPointer atrajectory;
-          mesh->GetCell(sigIDs.at(t),atrajectory);
-          PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+    	  MeshType::PointType tpoint, mean_point,sum_points, closest_point;
+    	  VariableType dist,closest_point_post;
+    	  pntStack.clear();
+    	  postStack.clear();
 
-          VariableType MinDist = itk::NumericTraits<VariableType>::max();
-          for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
-          {
-            mesh->GetPoint(*pit, &tpoint);
-            mesh->GetPointData( *pit, &tpointvalue );
-            //find the points on a single trajectory that corresponds to the current point on the center
-            if (tpointvalue.Correspondence(k)==MyLabel)
-            {
-              dist = tpoint.EuclideanDistanceTo(point);
-              if (dist<MinDist)
-              {
-                MinDist = dist;
-                closest_point = tpoint;
-                closest_point_post = post(sigIDs.at(t));
-              }
-            }
-            pit++;
-          }
-          if (MinDist<MaxDist)
-          {
-            pntStack.push_back(closest_point);
-            postStack.push_back(closest_point_post);
-          }
+    	  if (sigIDs.size()>0)
+    	  {
+    		  //update the center by taking the average of trajectories
 
-        }
-        // if (pntStack.size()<3)
-        //   std::cout<<"Point "<< c <<" on the new center is obtained by averaging less than 3 points." << std::endl;
-        sum_points.Fill(0);
-        VariableType SumPost = 0;
-        for ( unsigned int m=0; m<pntStack.size(); ++m)
-        {
-          MeshType::PointType temp = pntStack[m];
-          sum_points[0] += temp[0]*postStack[m];
-          sum_points[1] += temp[1]*postStack[m];
-          sum_points[2] += temp[2]*postStack[m];
-          SumPost +=postStack[m];
-        }
-        if (SumPost>0)
-        {
-          mean_point[0] = sum_points[0]/SumPost;
-          mean_point[1] = sum_points[1]/SumPost;
-          mean_point[2] = sum_points[2]/SumPost;
+    		  for (unsigned long int t=0; t<sigIDs.size(); ++t)
+    		  {
+    			  CellAutoPointer atrajectory;
+    			  mesh->GetCell(sigIDs.at(t),atrajectory);
+    			  PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
 
-          //compute the distance between the current mean point and the previous one:
-          if (c>0 && cit>0) //not at the beginning of the centerline
-          {
-            distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
-          }
-          if (distBetweenSuccessivePoints>= distBetweenSuccessivePointsOnCenter)
-          {
-            mesh_newcenters->SetPoint(cit,mean_point);
-            new_center->SetPointId(s,cit);
-            last_mean_point = mean_point;
-            ++cit; ++s;
-          }
-        }
-        else
-        {
-          //std::cout<<"A point on the center is not being updated!" << std::endl;
-        }
-        ++mcit;
-      }
+    			  VariableType MinDist = itk::NumericTraits<VariableType>::max();
+    			  for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
+    			  {
+    				  mesh->GetPoint(*pit, &tpoint);
+    				  mesh->GetPointData( *pit, &tpointvalue );
+    				  //find the points on a single trajectory that corresponds to the current point on the center
+    				  if (tpointvalue.Correspondence(k)==MyLabel)
+    				  {
+    					  dist = tpoint.EuclideanDistanceTo(point);
+    					  if (dist<MinDist)
+    					  {
+    						  MinDist = dist;
+    						  closest_point = tpoint;
+    						  closest_point_post = post(sigIDs.at(t));
+    					  }
+    				  }
+    				  pit++;
+    			  }
+    			  if (MinDist<MaxDist)
+    			  {
+    				  pntStack.push_back(closest_point);
+    				  postStack.push_back(closest_point_post);
+    			  }
 
-      else
-      {//just copy the points from the center to newcenters
-        mesh_newcenters->SetPoint(cit,point);
-        new_center->SetPointId(s,cit);
-        ++cit; ++s; ++mcit;
+    		  }
+    		  // if (pntStack.size()<3)
+    		  //   std::cout<<"Point "<< c <<" on the new center is obtained by averaging less than 3 points." << std::endl;
+    		  sum_points.Fill(0);
+    		  VariableType SumPost = 0;
+    		  for ( unsigned int m=0; m<pntStack.size(); ++m)
+    		  {
+    			  MeshType::PointType temp = pntStack[m];
+    			  sum_points[0] += temp[0]*postStack[m];
+    			  sum_points[1] += temp[1]*postStack[m];
+    			  sum_points[2] += temp[2]*postStack[m];
+    			  SumPost +=postStack[m];
+    		  }
+    		  if (SumPost>0)
+    		  {
+    			  mean_point[0] = sum_points[0]/SumPost;
+    			  mean_point[1] = sum_points[1]/SumPost;
+    			  mean_point[2] = sum_points[2]/SumPost;
+
+    			  //compute the distance between the current mean point and the previous one:
+    			  if (c>0 && cit>0) //not at the beginning of the centerline
+    			  {
+    				  distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
+    			  }
+    			  if (distBetweenSuccessivePoints>= distBetweenSuccessivePointsOnCenter)
+    			  {
+    				  mesh_newcenters->SetPoint(cit,mean_point);
+    				  new_center->SetPointId(s,cit);
+    				  last_mean_point = mean_point;
+    				  ++cit; ++s;
+    			  }
+    		  }
+    		  else
+    		  {
+    			  std::cout<<"A point on the center is not being updated!" << std::endl;
+    		  }
+    		  ++mcit;
+    	  }
+    	  else
+    	  {//just copy the points from the center to newcenters
+    		  mesh_newcenters->SetPoint(cit,point);
+    		  new_center->SetPointId(s,cit);
+    		  ++cit; ++s; ++mcit;
+    	  }
+
       }
     }
-
     mesh_newcenters->SetCell(k,new_center);
   }
 
@@ -630,77 +624,64 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
 
   ImageType::IndexType ind;
   MeshType::PointType point;
-  int MyLabel, PrevLabel=0;
+  int MyLabel, currentLabel=0;
   for (unsigned int s=0; s<numberOfSamples; ++s)
   {
     center->GetPoint(s, &point);
     if (refImage->TransformPhysicalPointToIndex(point, ind))
     {
-      MyLabel = refImage->ComputeOffset(ind);
+      //MyLabel = refImage->ComputeOffset(ind);
+    	MyLabel = currentLabel++;
+        //go over trajectories
+    	for (unsigned long int t=0; t<numberOfTrajectories; ++t)
+    	{
+    		CellAutoPointer atrajectory;
+    		cluster->GetCell(t,atrajectory);
+    		PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+    		MeshType::PointType tpoint;
+    		MeshType::PixelType tpointvalue;
+
+    		double sumFeature1 = 0;
+    		double sumFeature2 = 0;
+    		double sumFeature3 = 0;
+    		double sumFeature4 = 0;
+    		int n=0;
+    		for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
+    		{
+    			cluster->GetPoint(*pit, &tpoint);
+    			cluster->GetPointData( *pit, &tpointvalue );
+    			if (tpointvalue.Correspondence(clusterId)==MyLabel)
+    			{
+    				sumFeature1 += tpointvalue.FA;
+    				sumFeature2 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
+    				sumFeature3 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
+    				sumFeature4 += tpointvalue.EigenValues[2];
+    				n++;
+    			}
+    			pit++;
+    		}
+    		if (sumFeature1>0)
+    		{
+    			fMatrix1[t][s] = sumFeature1/n;
+    			fMatrix2[t][s] = sumFeature2/n;
+    			fMatrix3[t][s] = sumFeature3/n;
+    			fMatrix4[t][s] = sumFeature4/n;
+    		}
+    		else
+    		{
+    			fMatrix1[t][s] = nanVal;
+    			fMatrix2[t][s] = nanVal;
+    			fMatrix3[t][s] = nanVal;
+    			fMatrix4[t][s] = nanVal;
+    		}
+    	}
     }
     else
     {
-      std::cout<< "point is out of space"<< std::endl;
+    	std::cout<< "point is out of space"<< std::endl;
     }
-    if (MyLabel!=PrevLabel) // Because of quantization, labels of successive samples could be the same.
-    {
-      PrevLabel = MyLabel;
-      //go over trajectories
-      for (unsigned long int t=0; t<numberOfTrajectories; ++t)
-      {
-        CellAutoPointer atrajectory;
-        cluster->GetCell(t,atrajectory);
-        PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
-        MeshType::PointType tpoint;
-        MeshType::PixelType tpointvalue;
 
-        double sumFeature1 = 0;
-        double sumFeature2 = 0;
-        double sumFeature3 = 0;
-        double sumFeature4 = 0;
-        int n=0;
-        for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
-        {
-          cluster->GetPoint(*pit, &tpoint);
-          cluster->GetPointData( *pit, &tpointvalue );
-          if (tpointvalue.Correspondence(clusterId)==MyLabel)
-          {
-            sumFeature1 += tpointvalue.FA;
-            sumFeature2 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
-            sumFeature3 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
-            sumFeature4 += tpointvalue.EigenValues[2];
-            n++;
-          }
-          pit++;
-        }
-        if (sumFeature1>0)
-        {
-          fMatrix1[t][s] = sumFeature1/n;
-          fMatrix2[t][s] = sumFeature2/n;
-          fMatrix3[t][s] = sumFeature3/n;
-          fMatrix4[t][s] = sumFeature4/n;
-
-        }
-        else
-        {
-          fMatrix1[t][s] = nanVal;
-          fMatrix2[t][s] = nanVal;
-          fMatrix3[t][s] = nanVal;
-          fMatrix4[t][s] = nanVal;
-        }
-      }
-    }
-    else
-    {
-      for (unsigned long int t=0; t<numberOfTrajectories; ++t)
-      {
-        fMatrix1[t][s] = fMatrix1(t,s-1);
-        fMatrix2[t][s] = fMatrix2(t,s-1);
-        fMatrix3[t][s] = fMatrix3(t,s-1);
-        fMatrix4[t][s] = fMatrix4(t,s-1);
-      }
-    }
-  }
+  } //end for
   Array3DType allFeatures;
   allFeatures.push_back(fMatrix1);
   allFeatures.push_back(fMatrix2);
@@ -916,8 +897,8 @@ int main(int argc, char* argv[])
 	//use_atlas = 0;
 	//analysis = 1;
 	//
-	bool debug = 0;
-	CopyFieldType copyField = {0,0,1,1,0};
+	bool debug = 1;
+	CopyFieldType copyField = {0,0,1,1,0,1};
 
 	// Get the input trajectories
 
@@ -1086,6 +1067,7 @@ int main(int argc, char* argv[])
 		  {
 			  std::string tempFilename;
 			  tempFilename = OutputDirectory + "/trajectories_iter" + currentIteration.str() +".vtp";
+			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =1;
 			  WriteVTKfile(RefinedTrajectories, tempFilename, copyField);
 			  //std::cout<< Posterior << std::endl;
 			  std::cout<< "alpha = " << alpha << std::endl;
@@ -1107,10 +1089,10 @@ int main(int argc, char* argv[])
 		  {
 			  std::string tempFilename;
 			  tempFilename = OutputDirectory + "/centers_iteration" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0;
+			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0;
 			  WriteVTKfile(NewCenters,tempFilename,copyField);
 			  tempFilename = OutputDirectory + "/smoothed_centers_iteration" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0;
+			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0;
 			  WriteVTKfile(SmoothedCenters,tempFilename,copyField);
 		  }
 
@@ -1126,7 +1108,7 @@ int main(int argc, char* argv[])
 		}
 
 	  AssignClusterLabels(Trajectories,Posterior);
-	  copyField.FA = 0; copyField.Tensor = 1;
+	  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1;
 	  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
 
 	  //Done with clustering.
@@ -1195,11 +1177,11 @@ int main(int argc, char* argv[])
 
 				  // Write individual files for each cluster and its center.
 				  filename = OutputDirectory+"/center" + currentClusterId.str()+".vtp";
-				  copyField.FA = 1; copyField.Tensor = 0;
+				  copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences = 0;
 				  WriteVTKfile(centerWithData[k],filename,copyField);
 
 				  filename = OutputDirectory+"/cluster" + currentClusterId.str()+".vtp";
-				  copyField.FA = 0; copyField.Tensor = 1;
+				  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1;
 				  WriteVTKfile(cluster[k], filename,copyField);
 			  }
 
@@ -1228,6 +1210,7 @@ int main(int argc, char* argv[])
 
 					  //Generate separate meshes for each subject in the population
 					  subClusters.push_back(getCluster(cluster[k], allfilenames.at(sn)));
+					  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1;
 					  WriteVTKfile(subClusters[sn], outputfilename.c_str() ,copyField);
 				  }
 			  }
@@ -1239,7 +1222,7 @@ int main(int argc, char* argv[])
 	  copyField.FA = 0;
 	  }
 	  //write centers with new point data from the quantitative analysis part.
-	  copyField.Tensor = 0;
+	  copyField.Tensor = 0; copyField.Correspondences = 0;
 	  WriteVTKfile(oldCenters, outputCentersFilename.c_str(),copyField);
 
 	  std::cout << "Done." << std::endl;

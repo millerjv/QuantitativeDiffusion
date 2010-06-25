@@ -22,6 +22,7 @@
 #include <vtkDataSetAttributes.h>
 #include <vtkPointData.h>
 #include <vtkStringArray.h>
+#include <vtkLongArray.h>
 
 const unsigned int PointDimension = 3;
 const unsigned int MaxTopologicalDimension = 1;
@@ -50,6 +51,7 @@ bool                  EigenValues;
 bool                  Tensor;
 bool                  ClusterLabel;
 bool                  CaseName;
+bool                  Correspondences;
 }CopyFieldType;
 
 

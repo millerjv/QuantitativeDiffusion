@@ -218,8 +218,9 @@ CurveType SmoothCurve(CurveType Curve)
   CurveType SmoothedCurve;
   int NumberOfPoints = Curve.rows();
   SmoothedCurve.set_size(NumberOfPoints,3);
-  int window = 5;  //radius
-  for (int j=0; j<NumberOfPoints; ++j)
+  int window = 3;  //radius
+  SmoothedCurve.set_row (0, Curve.get_row(0));
+  for (int j=1; j<NumberOfPoints-1; ++j)
   {
     CurvePointType sumPoints;
     sumPoints.set_size(3);
@@ -241,6 +242,7 @@ CurveType SmoothCurve(CurveType Curve)
     }
     SmoothedCurve.set_row(j, sumPoints/el);
   }
+  SmoothedCurve.set_row (NumberOfPoints-1, Curve.get_row(NumberOfPoints-1));
   //std::cout << SmoothedCurve <<std::endl;
   return SmoothedCurve;
 }

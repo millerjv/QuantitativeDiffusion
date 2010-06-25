@@ -20,6 +20,11 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
     tensors->SetNumberOfComponents(9);
     tensors->SetNumberOfTuples(numPoints);
 
+    vtkLongArray* correspondences = vtkLongArray::New();
+    correspondences->SetNumberOfComponents(1);
+    correspondences->SetNumberOfTuples(numPoints);
+    correspondences->SetName("Correspondence");
+
     vtkDoubleArray* scalars = vtkDoubleArray::New();
     scalars->SetNumberOfTuples(numPoints);
     scalars->SetName("FA");
@@ -27,7 +32,6 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
     vtkUnsignedLongArray* clusterScalars = vtkUnsignedLongArray::New();
     clusterScalars->SetNumberOfTuples(numCells);
     clusterScalars->SetName("ClusterId");
-
 
     vtkDoubleArray* clusterMembershipProbs = vtkDoubleArray::New();
     clusterMembershipProbs->SetNumberOfTuples(numCells);
@@ -39,6 +43,7 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
 
     itk::FixedArray<double, 9 >  MyTensor;
     double MyFA;
+    itk::Array<long int>  MyCorrespondences;
     MeshType::PixelType pointvalue;
     MeshType::PointsContainer::Pointer points = mesh->GetPoints();
     for(MeshType::PointsContainer::Iterator i = points->Begin(); i !=
@@ -54,8 +59,13 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
       mesh->GetPointData(idx, &pointvalue);
       MyTensor = pointvalue.Tensor;
       MyFA = pointvalue.FA;
+      MyCorrespondences = pointvalue.Correspondence;
       scalars->InsertTuple1(idx, MyFA);
       tensors->SetTuple9(idx,MyTensor[0],MyTensor[1],MyTensor[2],MyTensor[3],MyTensor[4],MyTensor[5],MyTensor[6],MyTensor[7],MyTensor[8]);
+      if (copyField.Correspondences)
+      {
+    	  correspondences->InsertTuple1(idx,MyCorrespondences[0]);
+      }
     }
 
     polydata->SetPoints(vpoints);
@@ -70,6 +80,11 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
     if (copyField.FA)
     {
       polydata->GetPointData()->SetScalars(scalars);
+    }
+
+    if (copyField.Correspondences)
+    {
+      polydata->GetPointData()->SetScalars(correspondences);
     }
 
 
@@ -120,6 +135,7 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
     clusterScalars->Delete();
     clusterMembershipProbs->Delete();
     subjectName->Delete();
+    correspondences->Delete();
   //}
   return polydata;
 }
