@@ -61,8 +61,11 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
           {
             MyLabels.push_back(space->ComputeOffset(ind));
           }
+          else
+          {
+        	std::cout << "Warning! the resolution of your space is lower than than the center's parameterization"  << std::endl;
+          }
         }
-        //-------------
       }
       else
       {
@@ -70,7 +73,6 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       }
       ++pit;
     }
-
 
     if (!outOfSpace)
     {
@@ -114,27 +116,28 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 
         for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
         {
-          mesh->GetPoint(*pit, &point);
-          if (space->TransformPhysicalPointToIndex(point, ind))
-          {
-            itk::ContinuousIndex<double, 3> cidx;
-            if (space->TransformPhysicalPointToContinuousIndex( point, cidx ))
-            {
-              sumdist+=DMInterpolator->Evaluate(point);}
-            mesh->GetPointData( *pit, &pointvalue );
-            pointvalue.Correspondence.set_size(NumberOfClusters);
-            //1st output -- the correspondence info is going to be used in updating
-            //the centers and further quantitative analysis.
-            pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
-            MyLabelsOnTrajectory.push_back(VoronoiMap->GetPixel(ind));
-            mesh->SetPointData( *pit, pointvalue );
-          }
-          else
-          {
-            std::cout << "Point " << point <<  " is outside the space" <<std::endl;
-          }
+        	mesh->GetPoint(*pit, &point);
+        	if (space->TransformPhysicalPointToIndex(point, ind))
+        	{
+        		itk::ContinuousIndex<double, 3> cidx;
+        		if (space->TransformPhysicalPointToContinuousIndex( point, cidx ))
+        		{
+        			sumdist+=DMInterpolator->Evaluate(point);
+        		}
+        		mesh->GetPointData( *pit, &pointvalue );
+				pointvalue.Correspondence.set_size(NumberOfClusters);
+				//1st output -- the correspondence info is going to be used in updating
+				//the centers and further quantitative analysis.
+				pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
+				MyLabelsOnTrajectory.push_back(VoronoiMap->GetPixel(ind));
+				mesh->SetPointData( *pit, pointvalue );
+        	}
+        	else
+        	{
+        		std::cout << "Point " << point <<  " is outside the space" <<std::endl;
+        	}
 
-          ++pit;
+        	++pit;
         }
         // Now compute the miss-matches between the labels on the centers and trajectories:
         int LabelExisted = 0;
