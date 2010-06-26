@@ -892,6 +892,7 @@ int main(int argc, char* argv[])
 
 	MeshType::Pointer    Trajectories, Centers, atlasCenters;
 	MeshType::Pointer    oldCenters = MeshType::New();
+	ImageType::Pointer subSpace;
 
 	//population=0;
 	//use_atlas = 0;
@@ -991,14 +992,15 @@ int main(int argc, char* argv[])
 	if (Centers->GetNumberOfCells()>0 && Trajectories->GetNumberOfCells()>0)
 	{
 		VariableType tractographyStepSize  = getSampleSpacing(Trajectories);
-		// set the space to the limits of input trajectories
-		VariableType spaceResolution = tractographyStepSize;  //space resolution >= tractographyStepSize
-		ImageType::Pointer subSpace;
-		subSpace = getSubSpace(Trajectories, spaceResolution);
+		std::cout << "Calculated tractography step size is " << tractographyStepSize << std::endl;
 
-		samplesDistance = 2.0* spaceResolution;
-		// Resample initial centers:
-		Centers = SmoothMesh(Centers, samplesDistance);
+		// set the space to the limits of input trajectories
+	    VariableType spaceResolution = 4*tractographyStepSize;  //space resolution >= tractographyStepSize
+	    std::cout << "Setting the initial space resolution to " << spaceResolution << std::endl;
+	    samplesDistance = 2.0* spaceResolution;
+	    // Resample initial centers:
+	    Centers = SmoothMesh(Centers, samplesDistance);
+
 
 		VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());
 		// If the number of clusters is 1:
@@ -1035,6 +1037,9 @@ int main(int argc, char* argv[])
 		  std::cout<< "Iteration  " << i+1 << std::endl;
 		  std::stringstream currentIteration;
 		  currentIteration << i+1;
+
+		  subSpace = getSubSpace(Trajectories, spaceResolution);
+
 		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace);
 		  if (debug)
 		  {
@@ -1105,6 +1110,10 @@ int main(int argc, char* argv[])
 			  //std::cout<< "Difference between new centers and old ones is "<< dd.max_value() <<std::endl;
 			  if (dd.max_value()<5) break;
 		  }
+		  spaceResolution = tractographyStepSize;  //space resolution >= tractographyStepSize
+		  std::cout << "Setting the space resolution to " << spaceResolution << std::endl;
+		  samplesDistance = 2.0* spaceResolution;
+
 		}
 
 	  AssignClusterLabels(Trajectories,Posterior);
