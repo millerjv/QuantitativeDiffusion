@@ -19,149 +19,204 @@
 //#include <itkExtractImageFilter.h>
 
 
-Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageType* space)
+Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageType* space, VariableType deltaS, VariableType deltaT)
 {
-  unsigned long int NumberOfTrajectories=mesh->GetNumberOfCells();
-  unsigned int NumberOfClusters=mesh_centers->GetNumberOfCells();
-  Array2DType DissimilarityMeasure;
-  DissimilarityMeasure.SetSize(NumberOfTrajectories,NumberOfClusters);
-  VariableType LargeDist = itk::NumericTraits<VariableType>::max();
-  DissimilarityMeasure.fill(LargeDist);
+	unsigned long int NumberOfTrajectories=mesh->GetNumberOfCells();
+	unsigned int NumberOfClusters=mesh_centers->GetNumberOfCells();
+	Array2DType DissimilarityMeasure;
+	DissimilarityMeasure.SetSize(NumberOfTrajectories,NumberOfClusters);
+	VariableType LargeDist = itk::NumericTraits<VariableType>::max();
+	DissimilarityMeasure.fill(LargeDist);
+	bool considerOrientation = 1;
 
+	for (unsigned int ClusterIdx = 0; ClusterIdx<NumberOfClusters; ++ClusterIdx)
+	{
+		// Build a distance map for each cluster center
+		space->FillBuffer(0);
+		int myCurrentLabel =0;
 
-  for (unsigned int ClusterIdx = 0; ClusterIdx<NumberOfClusters; ++ClusterIdx)
-  {
-    // Build a distance map for each cluster center
-    space->FillBuffer(0);
-    int myCurrentLabel =0;
+		// Mark up the voxels of the centerlines on the image
+		CellAutoPointer Centerline;
+		mesh_centers->GetCell(ClusterIdx, Centerline);
+		PolylineType::PointIdIterator pit = Centerline->PointIdsBegin();
+		ImageType::IndexType ind;
+		MeshType::PointType point, nextPoint, prevPoint;
+		std::vector<long int> MyLabels;
+		std::vector <VectorType> orientationOnCenter;
+		MyLabels.clear();
+		bool outOfSpace = 1;
+		for (unsigned int j=0; j < Centerline->GetNumberOfPoints(); ++j)
+		{
+			mesh_centers->GetPoint(*pit, &point);
+			if (space->TransformPhysicalPointToIndex(point, ind))
+			{
 
-    // Mark up the voxels of the centerlines on the image
-    CellAutoPointer Centerline;
-    mesh_centers->GetCell(ClusterIdx, Centerline);
-    PolylineType::PointIdIterator pit = Centerline->PointIdsBegin();
-    ImageType::IndexType ind;
-    MeshType::PointType point;
-    std::vector<long int> MyLabels;
-    MyLabels.clear();
-    bool outOfSpace = 1;
-    for (unsigned int j=0; j < Centerline->GetNumberOfPoints(); ++j)
-    {
-      mesh_centers->GetPoint(*pit, &point);
-      if (space->TransformPhysicalPointToIndex(point, ind))
-      {
-        outOfSpace = 0;
-        myCurrentLabel++;
-        //space->SetPixel(ind,space->ComputeOffset(ind));
-        space->SetPixel(ind,myCurrentLabel);
+				outOfSpace = 0;
+				myCurrentLabel++;
+				space->SetPixel(ind,myCurrentLabel);
 
-        //populate the labels in MyLabels along each center
-        MyLabels.push_back(myCurrentLabel);
-      }
-      else
-      {
-        std::cout<<"Point "<< point<<" on the center "<< ClusterIdx <<" is out of the space"<<std::endl;
-      }
-      ++pit;
-    }
+				//populate the labels in MyLabels along each center
+				MyLabels.push_back(myCurrentLabel);
 
-    if (!outOfSpace)
-    {
-      std::cout<< " Generating the Distance Map for Cluster "<< ClusterIdx+1 <<" ..."<< std::endl;
-
-      // Apply the daneilsson filter
-      typedef itk::DanielssonDistanceMapImageFilter< ImageType, ImageType > DistanceMapFilterType;
-      DistanceMapFilterType::Pointer DMFilter = DistanceMapFilterType::New();
-      DMFilter->SetInput(space);
-      DMFilter->InputIsBinaryOff();
-      DMFilter->Update();
-
-      ImageType::Pointer DistanceMap=DMFilter->GetOutput();
-      ImageType::Pointer VoronoiMap=DMFilter->GetVoronoiMap();
-
-      //write out the images:
-      /*typedef itk::ImageFileWriter< ImageType > WriterType;
-      WriterType::Pointer writer = WriterType::New();
-      writer->SetFileName("myspace.nhdr");
-      writer->SetInput(VoronoiMap);
-      std::cout<< "Writing the voronoi map" << std::endl;
-      writer->Update(); */
-
-      //Create the interpolator for the Distance Map
-      itk::LinearInterpolateImageFunction<ImageType, double>::Pointer DMInterpolator =
-        itk::LinearInterpolateImageFunction<ImageType, double>::New();
-      DMInterpolator->SetInputImage(DistanceMap);
-
-      //Find the dissimilarity measure for each trajectory
-      for (unsigned int t=0; t<NumberOfTrajectories; ++t)
-      {
-        CellAutoPointer atrajectory;
-        mesh->GetCell(t, atrajectory);
-        PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
-        ImageType::IndexType ind;
-        MeshType::PointType point;
-        MeshType::PixelType pointvalue;
-        VariableType sumdist = 0;
-        std::vector<long int> MyLabelsOnTrajectory;
-        MyLabelsOnTrajectory.clear();
-        long int lastLabel = 0;
-
-        for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
-        {
-        	mesh->GetPoint(*pit, &point);
-        	if (space->TransformPhysicalPointToIndex(point, ind))
-        	{
-        		itk::ContinuousIndex<double, 3> cidx;
-        		if (space->TransformPhysicalPointToContinuousIndex( point, cidx ))
-        		{
-        			sumdist+=DMInterpolator->Evaluate(point);
-        		}
-        		mesh->GetPointData( *pit, &pointvalue );
-				pointvalue.Correspondence.set_size(NumberOfClusters);
-				//1st output -- the correspondence info is going to be used in updating
-				//the centers and further quantitative analysis.
-				long int  tempLabel = VoronoiMap->GetPixel(ind);
-				if (tempLabel< lastLabel)
+				if (considerOrientation)
 				{
-					pointvalue.Correspondence[ClusterIdx] = -100; //NaN
-				}
-				else
-				{
-			        if (tempLabel != lastLabel)
+					if (j==0)
 					{
-			        	MyLabelsOnTrajectory.push_back(tempLabel);
+						mesh_centers->GetPoint(*(pit+1), &nextPoint);
+						prevPoint = point;
 					}
-			        pointvalue.Correspondence[ClusterIdx] = tempLabel;
-			        lastLabel = tempLabel;
+					else if (j==Centerline->GetNumberOfPoints()-1)
+					{
+						mesh_centers->GetPoint(*(pit-1), &prevPoint);
+						nextPoint = point;
+					}
+					else
+					{
+						mesh_centers->GetPoint(*(pit-1), &prevPoint);
+						mesh_centers->GetPoint(*(pit+1), &nextPoint);
+					}
+					VectorType orientationPoint = (nextPoint - prevPoint);
+					orientationPoint.Normalize();
+					orientationOnCenter.push_back(orientationPoint);
 				}
-				//pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
-				mesh->SetPointData( *pit, pointvalue );
-        	}
-        	else
-        	{
-        		std::cout << "Point " << point <<  " is outside the space" <<std::endl;
-        	}
+			}
+			else
+			{
+				std::cout<<"Point "<< point<<" on the center "<< ClusterIdx <<" is out of the space"<<std::endl;
+			}
+			++pit;
+		}
 
-        	++pit;
-        }
+		if (!outOfSpace)
+		{
+			std::cout<< " Generating the Distance Map for Cluster "<< ClusterIdx+1 <<" ..."<< std::endl;
 
-        VariableType AveDist = sumdist/(atrajectory->GetNumberOfPoints());
+			// Apply the daneilsson filter
+			typedef itk::DanielssonDistanceMapImageFilter< ImageType, ImageType > DistanceMapFilterType;
+			DistanceMapFilterType::Pointer DMFilter = DistanceMapFilterType::New();
+			DMFilter->SetInput(space);
+			DMFilter->InputIsBinaryOff();
+			DMFilter->Update();
 
-        // !!!!!!!!!!!!!!!!!!!!!!!!To be fixed!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!:
+			ImageType::Pointer DistanceMap=DMFilter->GetOutput();
+			ImageType::Pointer VoronoiMap=DMFilter->GetVoronoiMap();
 
-        VariableType missMatch = (VariableType)(MyLabels.size() - MyLabelsOnTrajectory.size())/MyLabels.size()*AveDist;
-        //2nd output
-        DissimilarityMeasure[t][ClusterIdx] = (AveDist + missMatch);
-        //std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " " <<missMatch<<" " << (AveDist + 2* missMatch)<<std::endl;
-      }
-    }
-    else
-    {
-      std::cout<< "Center "<< ClusterIdx <<" is out of space."<< std::endl;
-    }
+			//write out the images:
+			/*typedef itk::ImageFileWriter< ImageType > WriterType;
+      	  	  WriterType::Pointer writer = WriterType::New();
+      	  	  writer->SetFileName("myspace.nhdr");
+      	  	  writer->SetInput(VoronoiMap);
+      	  	  std::cout<< "Writing the voronoi map" << std::endl;
+      	  	  writer->Update(); */
 
-  }
+			//Create the interpolator for the Distance Map
+			itk::LinearInterpolateImageFunction<ImageType, double>::Pointer DMInterpolator =
+					itk::LinearInterpolateImageFunction<ImageType, double>::New();
+			DMInterpolator->SetInputImage(DistanceMap);
 
-  return DissimilarityMeasure; //NxK
+			//Find the dissimilarity measure for each trajectory
+			for (unsigned int t=0; t<NumberOfTrajectories; ++t)
+			{
+				CellAutoPointer atrajectory;
+				mesh->GetCell(t, atrajectory);
+				PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+				ImageType::IndexType ind;
+				MeshType::PointType point, nextPoint, prevPoint;
+				MeshType::PixelType pointvalue;
+				VariableType sumdist = 0, sumSinAngle=0;
+				std::vector<long int> MyLabelsOnTrajectory;
+				std::vector<VectorType> orientationOnTrajectory;
+				orientationOnTrajectory.clear();
+				MyLabelsOnTrajectory.clear();
+				long int lastLabel = 0;
+				unsigned int NumberOfPointsOnTrajectory = atrajectory->GetNumberOfPoints();
+
+				for (unsigned int j=0; j < NumberOfPointsOnTrajectory; ++j)
+				{
+					mesh->GetPoint(*pit, &point);
+					if (space->TransformPhysicalPointToIndex(point, ind))
+					{
+						itk::ContinuousIndex<double, 3> cidx;
+						if (space->TransformPhysicalPointToContinuousIndex( point, cidx ))
+						{
+							sumdist+=DMInterpolator->Evaluate(point);
+						}
+						mesh->GetPointData( *pit, &pointvalue );
+						if (considerOrientation)
+						{
+							if (j==0)
+							{
+								mesh_centers->GetPoint(*(pit+1), &nextPoint);
+								prevPoint = point;
+							}
+							else if (j==NumberOfPointsOnTrajectory-1)
+							{
+								mesh_centers->GetPoint(*(pit-1), &prevPoint);
+								nextPoint = point;
+							}
+							else
+							{
+								mesh_centers->GetPoint(*(pit-1), &prevPoint);
+								mesh_centers->GetPoint(*(pit+1), &nextPoint);
+							}
+							VectorType orientationPoint = (nextPoint - prevPoint);
+							orientationPoint.Normalize();
+							orientationOnTrajectory.push_back (orientationPoint);
+						}
+						pointvalue.Correspondence.set_size(NumberOfClusters);
+						//1st output -- the correspondence info is going to be used in updating
+						//the centers and further quantitative analysis.
+
+
+						int  tempLabel = VoronoiMap->GetPixel(ind);
+						if (considerOrientation)
+						{
+							VariableType cosAngle = orientationOnTrajectory.at(j)*orientationOnCenter.at(tempLabel);
+							sumSinAngle += sqrt(1-cosAngle*cosAngle);
+						}
+
+						if (tempLabel< lastLabel)
+						{
+							pointvalue.Correspondence[ClusterIdx] = -100; //NaN
+						}
+						else
+						{
+							if (tempLabel != lastLabel)
+							{
+								MyLabelsOnTrajectory.push_back(tempLabel);
+							}
+							pointvalue.Correspondence[ClusterIdx] = tempLabel;
+							lastLabel = tempLabel;
+						}
+						//pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
+						mesh->SetPointData( *pit, pointvalue );
+
+					}
+					else
+					{
+						std::cout << "Point " << point <<  " is outside the space" <<std::endl;
+					}
+
+					++pit;
+				}
+
+				VariableType AveDist = sumdist/NumberOfPointsOnTrajectory;
+				VariableType AveSinAngle = sumSinAngle/NumberOfPointsOnTrajectory;
+
+				unsigned int NumberOfMissingPoints = MyLabels.size() - MyLabelsOnTrajectory.size();
+				//2nd output
+				DissimilarityMeasure[t][ClusterIdx] = AveSinAngle + AveDist*(1+ (NumberOfMissingPoints*deltaS)/(NumberOfPointsOnTrajectory*deltaT));
+				//std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " " <<missMatch<<" " << (AveDist + 2* missMatch)<<std::endl;
+			}
+		}
+		else
+		{
+			std::cout<< "Center "<< ClusterIdx <<" is out of space."<< std::endl;
+		}
+
+	}
+
+	return DissimilarityMeasure; //NxK
 }
 
 MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMatrix, Array2DType &Likelihood, Array2DType &Prior, ArrayType MyMinLikelihoodThr, bool havePrior)
@@ -1040,7 +1095,7 @@ int main(int argc, char* argv[])
 
 		  subSpace = getSubSpace(Trajectories, spaceResolution);
 
-		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace);
+		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, samplesDistance, tractographyStepSize);
 		  if (debug)
 		  {
 			  std::cout<< DissimilarityMatrix << std::endl;

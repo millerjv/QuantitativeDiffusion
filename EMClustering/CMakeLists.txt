@@ -42,9 +42,9 @@ GenerateCLP(${CLP}.cxx ${CLP}.xml)
 ADD_EXECUTABLE(${CLP} ${CLP}.cxx ${CLP}IO.cxx Registration.cxx myMaths.cxx)
 TARGET_LINK_LIBRARIES( ${CLP} ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
-add_library(${CLP}Lib SHARED ${${CLP}_SOURCE})
-set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
-target_link_libraries (${CLP}Lib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
+#add_library(${CLP}Lib SHARED ${${CLP}_SOURCE})
+#set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
+#target_link_libraries (${CLP}Lib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 slicer3_set_plugins_output_path(${CLP})
  

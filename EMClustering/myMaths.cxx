@@ -149,7 +149,7 @@ ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
 
   }
 
-  return mX;
+return mX;
 }
 VariableType Gamma(VariableType x, VariableType alpha, VariableType beta)
 {
