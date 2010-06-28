@@ -27,7 +27,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 	DissimilarityMeasure.SetSize(NumberOfTrajectories,NumberOfClusters);
 	VariableType LargeDist = itk::NumericTraits<VariableType>::max();
 	DissimilarityMeasure.fill(LargeDist);
-	bool considerOrientation = 1;
+	bool considerOrientation = 0;
 
 	for (unsigned int ClusterIdx = 0; ClusterIdx<NumberOfClusters; ++ClusterIdx)
 	{
@@ -188,7 +188,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 							pointvalue.Correspondence[ClusterIdx] = tempLabel;
 							lastLabel = tempLabel;
 						}
-						//pointvalue.Correspondence[ClusterIdx] =  (VoronoiMap->GetPixel(ind));
+
 						mesh->SetPointData( *pit, pointvalue );
 
 					}
@@ -200,13 +200,13 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 					++pit;
 				}
 
-				VariableType AveDist = sumdist/NumberOfPointsOnTrajectory;
+				VariableType AveDist = sumdist*space->GetSpacing()[0]/NumberOfPointsOnTrajectory;
 				VariableType AveSinAngle = sumSinAngle/NumberOfPointsOnTrajectory;
 
 				unsigned int NumberOfMissingPoints = MyLabels.size() - MyLabelsOnTrajectory.size();
 				//2nd output
 				DissimilarityMeasure[t][ClusterIdx] = AveSinAngle + AveDist*(1+ (NumberOfMissingPoints*deltaS)/(NumberOfPointsOnTrajectory*deltaT));
-				//std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " " <<missMatch<<" " << (AveDist + 2* missMatch)<<std::endl;
+				//std::cout << " " << sumdist << " " << atrajectory->GetNumberOfPoints() << " "<< AveDist<<" "<< MyLabels.size()<< " " <<(NumberOfMissingPoints*deltaS)/(NumberOfPointsOnTrajectory*deltaT)<<" " << DissimilarityMeasure[t][ClusterIdx]<<std::endl;
 			}
 		}
 		else
@@ -392,9 +392,8 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     PolylineType::PointIdIterator mcit = Centerline->PointIdsBegin();
     ImageType::IndexType ind;
     MeshType::PointType point, last_mean_point;
-    VariableType distBetweenSuccessivePointsOnCenter =0.5;
-    VariableType distBetweenSuccessivePoints = distBetweenSuccessivePointsOnCenter;
-
+    VariableType minDistBetweenSuccessivePointsOnCenter =0.5;    //the samples on the centers do not to be closer than 0.5mm
+    VariableType distBetweenSuccessivePoints;
 
     int MyLabel, currentLabel=0;
     unsigned int s=0;
@@ -404,7 +403,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
       if(refImage->TransformPhysicalPointToIndex(point, ind))
       {
         //MyLabel = refImage->ComputeOffset(ind);
-    	  MyLabel = currentLabel++;
+    	  MyLabel = ++currentLabel;
     	  MeshType::PixelType tpointvalue;
     	  std::vector<MeshType::PointType> pntStack;
     	  std::vector<VariableType> postStack;
@@ -432,7 +431,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     				  //find the points on a single trajectory that corresponds to the current point on the center
     				  if (tpointvalue.Correspondence(k)==MyLabel)
     				  {
-    					  dist = tpoint.EuclideanDistanceTo(point);
+    					  dist = tpoint.EuclideanDistanceTo(point)*refImage->GetSpacing()[0];
     					  if (dist<MinDist)
     					  {
     						  MinDist = dist;
@@ -470,9 +469,14 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     			  //compute the distance between the current mean point and the previous one:
     			  if (c>0 && cit>0) //not at the beginning of the centerline
     			  {
-    				  distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
+    				  distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point)*refImage->GetSpacing()[0];
     			  }
-    			  if (distBetweenSuccessivePoints>= distBetweenSuccessivePointsOnCenter)
+    			  else
+    			  {
+    				  distBetweenSuccessivePoints = minDistBetweenSuccessivePointsOnCenter;
+    			  }
+
+    			  if (distBetweenSuccessivePoints>= minDistBetweenSuccessivePointsOnCenter)
     			  {
     				  mesh_newcenters->SetPoint(cit,mean_point);
     				  new_center->SetPointId(s,cit);
@@ -502,7 +506,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 }
 
 
-MeshType::Pointer SmoothMesh(MeshType* mesh, float distanceBetweenSamples)
+MeshType::Pointer SmoothMesh(MeshType* mesh, VariableType distanceBetweenSamples)
 {
   MeshType::Pointer smoothedMesh = MeshType::New();
   unsigned int NumberOfCells = mesh->GetNumberOfCells();
@@ -525,7 +529,7 @@ MeshType::Pointer SmoothMesh(MeshType* mesh, float distanceBetweenSamples)
       MyCurve.set_row(j, point.GetVnlVector());
       pit++;
     }
-    SmoothedCurve = SmoothCurve(MyCurve);
+    SmoothedCurve = SmoothCurve(MyCurve,distanceBetweenSamples);
     SmoothedCurve = SmoothAndResampleCurve(SmoothedCurve, distanceBetweenSamples);
     //Put the new curve in the mesh:
     for (unsigned int j=0; j < SmoothedCurve.rows(); ++j)
@@ -686,7 +690,7 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
     if (refImage->TransformPhysicalPointToIndex(point, ind))
     {
       //MyLabel = refImage->ComputeOffset(ind);
-    	MyLabel = currentLabel++;
+    	MyLabel = ++currentLabel;
         //go over trajectories
     	for (unsigned long int t=0; t<numberOfTrajectories; ++t)
     	{
@@ -1052,7 +1056,7 @@ int main(int argc, char* argv[])
 		// set the space to the limits of input trajectories
 	    VariableType spaceResolution = 4*tractographyStepSize;  //space resolution >= tractographyStepSize
 	    std::cout << "Setting the initial space resolution to " << spaceResolution << std::endl;
-	    samplesDistance = 2.0* spaceResolution;
+	    samplesDistance = 2.0 * spaceResolution;
 	    // Resample initial centers:
 	    Centers = SmoothMesh(Centers, samplesDistance);
 
@@ -1071,7 +1075,7 @@ int main(int argc, char* argv[])
 		Array2DType DissimilarityMatrix, Likelihood, Prior, Posterior; //NxK
 
 		alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1);
-		beta.SetSize(Centers->GetNumberOfCells()); beta.fill(5);
+		beta.SetSize(Centers->GetNumberOfCells()); beta.fill(7);
 		Prior.SetSize(Trajectories->GetNumberOfCells(),Centers->GetNumberOfCells());
 		bool havePrior = 0;
 		if (havePrior)
@@ -1113,7 +1117,9 @@ int main(int argc, char* argv[])
 			  std::cout<< "MyMinLikelihoodThr = " << MyMinLikelihoodThr << std::endl;
 		  }
 
+		  std::cout << Trajectories->GetNumberOfPoints() << " " << Trajectories->GetNumberOfCells()<< std::endl;
 		  RefinedTrajectories = RefineData(Trajectories,DissimilarityMatrix,Likelihood,Prior,MyMinLikelihoodThr,havePrior);
+		  std::cout << RefinedTrajectories->GetNumberOfPoints() << " " << RefinedTrajectories->GetNumberOfCells()<<std::endl;
 		  if (RefinedTrajectories->GetNumberOfCells()<1)
 		  {
 			  std::cerr<< "The current setting of data/parameters have resulted in zero clustered trajectories"<<std::endl;
@@ -1127,7 +1133,7 @@ int main(int argc, char* argv[])
 		  {
 			  std::string tempFilename;
 			  tempFilename = OutputDirectory + "/trajectories_iter" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =1;
+			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =1; copyField.CaseName=0;
 			  WriteVTKfile(RefinedTrajectories, tempFilename, copyField);
 			  //std::cout<< Posterior << std::endl;
 			  std::cout<< "alpha = " << alpha << std::endl;
@@ -1149,10 +1155,10 @@ int main(int argc, char* argv[])
 		  {
 			  std::string tempFilename;
 			  tempFilename = OutputDirectory + "/centers_iteration" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0;
+			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
 			  WriteVTKfile(NewCenters,tempFilename,copyField);
 			  tempFilename = OutputDirectory + "/smoothed_centers_iteration" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0;
+			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
 			  WriteVTKfile(SmoothedCenters,tempFilename,copyField);
 		  }
 
@@ -1167,12 +1173,13 @@ int main(int argc, char* argv[])
 		  }
 		  spaceResolution = tractographyStepSize;  //space resolution >= tractographyStepSize
 		  std::cout << "Setting the space resolution to " << spaceResolution << std::endl;
-		  samplesDistance = 2.0* spaceResolution;
+		  //samplesDistance = 2.0* spaceResolution;
+		  samplesDistance = 2.5; //mm
 
 		}
 
 	  AssignClusterLabels(Trajectories,Posterior);
-	  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1;
+	  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0;
 	  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
 
 	  //Done with clustering.
@@ -1241,11 +1248,11 @@ int main(int argc, char* argv[])
 
 				  // Write individual files for each cluster and its center.
 				  filename = OutputDirectory+"/center" + currentClusterId.str()+".vtp";
-				  copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences = 0;
+				  copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences = 0; copyField.CaseName=0;
 				  WriteVTKfile(centerWithData[k],filename,copyField);
 
 				  filename = OutputDirectory+"/cluster" + currentClusterId.str()+".vtp";
-				  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1;
+				  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
 				  WriteVTKfile(cluster[k], filename,copyField);
 			  }
 
@@ -1253,6 +1260,7 @@ int main(int argc, char* argv[])
 			  std::vector<MeshType::Pointer> subClusters;
 
 			  if (population)
+
 			  {
 				  std::vector<std::string> subjectNamesInCluster =  getClusterSubjectNames(cluster[k]);
 				  std::string myfilename = OutputDirectory + "/cluster" + currentClusterId.str()+ "_subjectNames.txt";
@@ -1274,7 +1282,7 @@ int main(int argc, char* argv[])
 
 					  //Generate separate meshes for each subject in the population
 					  subClusters.push_back(getCluster(cluster[k], allfilenames.at(sn)));
-					  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1;
+					  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
 					  WriteVTKfile(subClusters[sn], outputfilename.c_str() ,copyField);
 				  }
 			  }
@@ -1286,7 +1294,7 @@ int main(int argc, char* argv[])
 	  copyField.FA = 0;
 	  }
 	  //write centers with new point data from the quantitative analysis part.
-	  copyField.Tensor = 0; copyField.Correspondences = 0;
+	  copyField.Tensor = 0; copyField.Correspondences = 0;copyField.CaseName=0;
 	  WriteVTKfile(oldCenters, outputCentersFilename.c_str(),copyField);
 
 	  std::cout << "Done." << std::endl;

@@ -213,12 +213,14 @@ Array2DType ComputeLikelihood(const Array2DType &DissimilarityMatrix, ArrayType 
   return Likelihood; //NxK
 }
 
-CurveType SmoothCurve(CurveType Curve)
+CurveType SmoothCurve(CurveType Curve, VariableType samplesDistance)
 {
   CurveType SmoothedCurve;
   int NumberOfPoints = Curve.rows();
   SmoothedCurve.set_size(NumberOfPoints,3);
-  int window = 3;  //radius
+  VariableType windowLength = 6;  // in mm -- parameter
+  int  window = ceil(windowLength/2/samplesDistance);
+
   SmoothedCurve.set_row (0, Curve.get_row(0));
   for (int j=1; j<NumberOfPoints-1; ++j)
   {
@@ -247,7 +249,7 @@ CurveType SmoothCurve(CurveType Curve)
   return SmoothedCurve;
 }
 
-CurveType SmoothAndResampleCurve(CurveType Curve, float ds)
+CurveType SmoothAndResampleCurve(CurveType Curve, VariableType ds)
 {
 	unsigned int numberOfLandmarks = Curve.rows();
 	std::vector<CoordinateType> s = getArcLengthParameterization(Curve);
@@ -292,7 +294,7 @@ CurveType SmoothAndResampleCurve(CurveType Curve, float ds)
 		 targets->InsertElement( i, target );
 		}
 
-  transform->SetStiffness(0.001);
+  transform->SetStiffness(0.0001);
   //A stiffness of zero results in the standard interpolating spline.
   //non-zero stiffness allows the spline to approximate rather than interpolate the landmarks.
   //Stiffness values are usually rather small, typically in the range of 0.001 to 0.1.
@@ -336,7 +338,12 @@ VariableType diffCurve(CurveType MyCurve1, CurveType MyCurve2) //simplest implem
 {
   VariableType dist = 0;
   CurvePointType p1,p2;
-  for (unsigned int l = 0; l< MyCurve2.rows(); ++l)
+  unsigned int numberOfRows = MyCurve2.rows();
+  if (MyCurve2.rows()>MyCurve1.rows())
+  {
+	  numberOfRows = MyCurve1.rows();
+  }
+  for (unsigned int l = 0; l< numberOfRows; ++l)
   {
     p2 = MyCurve2.get_row(l);
     p1 = MyCurve1.get_row(l);
