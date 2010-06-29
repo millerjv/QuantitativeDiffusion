@@ -294,7 +294,7 @@ CurveType SmoothAndResampleCurve(CurveType Curve, VariableType ds)
 		 targets->InsertElement( i, target );
 		}
 
-  transform->SetStiffness(0.0001);
+  transform->SetStiffness(0 );
   //A stiffness of zero results in the standard interpolating spline.
   //non-zero stiffness allows the spline to approximate rather than interpolate the landmarks.
   //Stiffness values are usually rather small, typically in the range of 0.001 to 0.1.

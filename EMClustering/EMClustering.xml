@@ -172,11 +172,11 @@
     <float>
       <name>MinLikelihoodThr</name>
       <label>Compactness of Fiber Bundles</label>
-      <default>3</default>
+      <default>2</default>
       <constraints>
-        <minimum>1</minimum>
-        <maximum>5</maximum>
-        <step>1</step>
+        <minimum>0.5</minimum>
+        <maximum>4</maximum>
+        <step>0.5</step>
       </constraints>
       <flag>l</flag>
       <longflag>min_likelihood</longflag>

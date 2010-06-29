@@ -9,17 +9,10 @@
 #include <itkDanielssonDistanceMapImageFilter.h>
 #include <itkBoundingBox.h>
 
-
 #include "EMClusteringCLP.h"
 
-//#include "itkImageRegionConstIterator.h"
-//#include "itkLinearInterpolateImageFunction.h"
-//#include "itkVectorLinearInterpolateImageFunction.h"
-//#include "itkImageRegionIteratorWithIndex.h"
-//#include <itkExtractImageFilter.h>
 
-
-Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageType* space, VariableType deltaS, VariableType deltaT)
+Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageType* space, VariableType deltaS, VariableType deltaT, VariableType maxDistance)
 {
 	unsigned long int NumberOfTrajectories=mesh->GetNumberOfCells();
 	unsigned int NumberOfClusters=mesh_centers->GetNumberOfCells();
@@ -27,6 +20,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 	DissimilarityMeasure.SetSize(NumberOfTrajectories,NumberOfClusters);
 	VariableType LargeDist = itk::NumericTraits<VariableType>::max();
 	DissimilarityMeasure.fill(LargeDist);
+	VariableType maxDist = maxDistance/space->GetSpacing()[0];  //Conversion from mm to space's units
 	bool considerOrientation = 0;
 
 	for (unsigned int ClusterIdx = 0; ClusterIdx<NumberOfClusters; ++ClusterIdx)
@@ -50,7 +44,6 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 			mesh_centers->GetPoint(*pit, &point);
 			if (space->TransformPhysicalPointToIndex(point, ind))
 			{
-
 				outOfSpace = 0;
 				myCurrentLabel++;
 				space->SetPixel(ind,myCurrentLabel);
@@ -110,8 +103,8 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
       	  	  writer->Update(); */
 
 			//Create the interpolator for the Distance Map
-			itk::LinearInterpolateImageFunction<ImageType, double>::Pointer DMInterpolator =
-					itk::LinearInterpolateImageFunction<ImageType, double>::New();
+			itk::LinearInterpolateImageFunction<ImageType, CoordinateType>::Pointer DMInterpolator =
+					itk::LinearInterpolateImageFunction<ImageType, CoordinateType>::New();
 			DMInterpolator->SetInputImage(DistanceMap);
 
 			//Find the dissimilarity measure for each trajectory
@@ -124,6 +117,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 				MeshType::PointType point, nextPoint, prevPoint;
 				MeshType::PixelType pointvalue;
 				VariableType sumdist = 0, sumSinAngle=0;
+				VariableType currentPointDist;
 				std::vector<long int> MyLabelsOnTrajectory;
 				std::vector<VectorType> orientationOnTrajectory;
 				orientationOnTrajectory.clear();
@@ -139,7 +133,8 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 						itk::ContinuousIndex<double, 3> cidx;
 						if (space->TransformPhysicalPointToContinuousIndex( point, cidx ))
 						{
-							sumdist+=DMInterpolator->Evaluate(point);
+							currentPointDist = DMInterpolator->Evaluate(point); //Note : not in mm
+							sumdist+= currentPointDist;
 						}
 						mesh->GetPointData( *pit, &pointvalue );
 						if (considerOrientation)
@@ -167,15 +162,15 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 						//1st output -- the correspondence info is going to be used in updating
 						//the centers and further quantitative analysis.
 
-
 						int  tempLabel = VoronoiMap->GetPixel(ind);
 						if (considerOrientation)
 						{
 							VariableType cosAngle = orientationOnTrajectory.at(j)*orientationOnCenter.at(tempLabel);
+							std::cout <<cosAngle << " " << std::endl;
 							sumSinAngle += sqrt(1-cosAngle*cosAngle);
 						}
 
-						if (tempLabel< lastLabel)
+						if (tempLabel< lastLabel || currentPointDist >maxDist)
 						{
 							pointvalue.Correspondence[ClusterIdx] = -100; //NaN
 						}
@@ -245,7 +240,7 @@ MeshType::Pointer RefineData(const MeshType* mesh, Array2DType &DissimilarityMat
     //To Do: set the threshold differently when havePrior = 1
     bool copycell = 0;
     for (unsigned int m=0; m < arow.Size(); ++m)  //go over the clusters
-    if (arow(m)> MyMinLikelihoodThr(m))
+    if (arow(m)> MyMinLikelihoodThr(m)||DissimilarityMatrix.get_row(n)(m)<= 5 )   //copy the trajectories with d<5mm and likelihood> minLikelihood
       { // To Do: || arow(m)<peaks(m)"
         copycell = 1;
         break;
@@ -366,7 +361,7 @@ void AssignClusterLabels(MeshType* mesh, const Array2DType &Posterior)
   }
 }
 
-MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Array2DType &Posterior, ImageType* refImage, VariableType MinPosterior, VariableType MaxDist)
+MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Array2DType &Posterior, VariableType MinPosterior)
 {
   MeshType::Pointer mesh_newcenters=MeshType::New();
   ArrayType post;
@@ -385,13 +380,16 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
       }
     }
 
+    if(sigIDs.size()<1)
+    {
+    	std::cout<< "Center " << k << " is not being updated" <<std::endl;
+    }
+
     CellAutoPointer Centerline, new_center;
     new_center.TakeOwnership( new PolylineType );
-
     mesh_centers->GetCell(k,Centerline);
     PolylineType::PointIdIterator mcit = Centerline->PointIdsBegin();
-    ImageType::IndexType ind;
-    MeshType::PointType point, last_mean_point;
+   MeshType::PointType point, last_mean_point;
     VariableType minDistBetweenSuccessivePointsOnCenter =0.5;    //the samples on the centers do not to be closer than 0.5mm
     VariableType distBetweenSuccessivePoints;
 
@@ -400,113 +398,100 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
     for (unsigned int c=0; c<Centerline->GetNumberOfPoints(); ++c)
     {
       mesh_centers->GetPoint(*mcit, &point);
-      if(refImage->TransformPhysicalPointToIndex(point, ind))
-      {
-        //MyLabel = refImage->ComputeOffset(ind);
-    	  MyLabel = ++currentLabel;
-    	  MeshType::PixelType tpointvalue;
-    	  std::vector<MeshType::PointType> pntStack;
-    	  std::vector<VariableType> postStack;
+      /*if(refImage->TransformPhysicalPointToIndex(point, ind))
+      {*/
+      MyLabel = ++currentLabel;
+      MeshType::PixelType tpointvalue;
+   	  std::vector<MeshType::PointType> pntStack;
+   	  std::vector<VariableType> postStack;
 
-    	  MeshType::PointType tpoint, mean_point,sum_points, closest_point;
-    	  VariableType dist,closest_point_post;
-    	  pntStack.clear();
-    	  postStack.clear();
-
-    	  if (sigIDs.size()>0)
+   	  MeshType::PointType tpoint, mean_point,sum_points, closest_point;
+      VariableType dist,closest_point_post;
+      pntStack.clear();
+      postStack.clear();
+   	  if (sigIDs.size()>0)
+   	  {//update the center by taking the average of trajectories
+    	for (unsigned long int t=0; t<sigIDs.size(); ++t)
+    	{
+    	  CellAutoPointer atrajectory;
+    	  mesh->GetCell(sigIDs.at(t),atrajectory);
+		  PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+		  VariableType MinDist = itk::NumericTraits<VariableType>::max();
+    	  for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
     	  {
-    		  //update the center by taking the average of trajectories
-
-    		  for (unsigned long int t=0; t<sigIDs.size(); ++t)
+    		mesh->GetPoint(*pit, &tpoint);
+    		mesh->GetPointData( *pit, &tpointvalue );
+    		 //find the points on a single trajectory that corresponds to the current point on the center
+    		if (tpointvalue.Correspondence(k)==MyLabel)
+    		{
+    		  dist = tpoint.EuclideanDistanceTo(point);
+    		  if (dist<MinDist)
     		  {
-    			  CellAutoPointer atrajectory;
-    			  mesh->GetCell(sigIDs.at(t),atrajectory);
-    			  PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
-
-    			  VariableType MinDist = itk::NumericTraits<VariableType>::max();
-    			  for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
-    			  {
-    				  mesh->GetPoint(*pit, &tpoint);
-    				  mesh->GetPointData( *pit, &tpointvalue );
-    				  //find the points on a single trajectory that corresponds to the current point on the center
-    				  if (tpointvalue.Correspondence(k)==MyLabel)
-    				  {
-    					  dist = tpoint.EuclideanDistanceTo(point)*refImage->GetSpacing()[0];
-    					  if (dist<MinDist)
-    					  {
-    						  MinDist = dist;
-    						  closest_point = tpoint;
-    						  closest_point_post = post(sigIDs.at(t));
-    					  }
-    				  }
-    				  pit++;
-    			  }
-    			  if (MinDist<MaxDist)
-    			  {
-    				  pntStack.push_back(closest_point);
-    				  postStack.push_back(closest_point_post);
-    			  }
-
+    			  MinDist = dist;
+    			  closest_point = tpoint;
+    			  closest_point_post = post(sigIDs.at(t));
     		  }
-    		  // if (pntStack.size()<3)
-    		  //   std::cout<<"Point "<< c <<" on the new center is obtained by averaging less than 3 points." << std::endl;
-    		  sum_points.Fill(0);
-    		  VariableType SumPost = 0;
-    		  for ( unsigned int m=0; m<pntStack.size(); ++m)
-    		  {
-    			  MeshType::PointType temp = pntStack[m];
-    			  sum_points[0] += temp[0]*postStack[m];
-    			  sum_points[1] += temp[1]*postStack[m];
-    			  sum_points[2] += temp[2]*postStack[m];
-    			  SumPost +=postStack[m];
-    		  }
-    		  if (SumPost>0)
-    		  {
-    			  mean_point[0] = sum_points[0]/SumPost;
-    			  mean_point[1] = sum_points[1]/SumPost;
-    			  mean_point[2] = sum_points[2]/SumPost;
+    		}
+    		pit++;
+    	  }//for j
+    	  pntStack.push_back(closest_point);
+          postStack.push_back(closest_point_post);
 
-    			  //compute the distance between the current mean point and the previous one:
-    			  if (c>0 && cit>0) //not at the beginning of the centerline
-    			  {
-    				  distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point)*refImage->GetSpacing()[0];
-    			  }
-    			  else
-    			  {
-    				  distBetweenSuccessivePoints = minDistBetweenSuccessivePointsOnCenter;
-    			  }
+    	}//for t
+        sum_points.Fill(0);
+    	VariableType SumPost = 0;
+    	for ( unsigned int m=0; m<pntStack.size(); ++m)
+    	{
+    	  MeshType::PointType temp = pntStack[m];
+    	  sum_points[0] += temp[0]*postStack[m];
+    	  sum_points[1] += temp[1]*postStack[m];
+    	  sum_points[2] += temp[2]*postStack[m];
+    	  SumPost +=postStack[m];
+    	}
+        if (SumPost>0)
+        {
+        	mean_point[0] = sum_points[0]/SumPost;
+    		mean_point[1] = sum_points[1]/SumPost;
+    		mean_point[2] = sum_points[2]/SumPost;
+			//compute the distance between the current mean point and the previous one:
+    	    if (c>0 && cit>0) //not at the beginning of the centerline
+    	    {
+    	    	distBetweenSuccessivePoints = mean_point.EuclideanDistanceTo(last_mean_point);
+    		}
+    	    else
+    	    {
+    		    distBetweenSuccessivePoints = minDistBetweenSuccessivePointsOnCenter;
+    	    }
 
-    			  if (distBetweenSuccessivePoints>= minDistBetweenSuccessivePointsOnCenter)
-    			  {
-    				  mesh_newcenters->SetPoint(cit,mean_point);
-    				  new_center->SetPointId(s,cit);
-    				  last_mean_point = mean_point;
-    				  ++cit; ++s;
-    			  }
-    		  }
-    		  else
-    		  {
-    			  std::cout<<"A point on the center is not being updated!" << std::endl;
-    		  }
-    		  ++mcit;
-    	  }
-    	  else
-    	  {//just copy the points from the center to newcenters
-    		  mesh_newcenters->SetPoint(cit,point);
-    		  new_center->SetPointId(s,cit);
-    		  ++cit; ++s; ++mcit;
-    	  }
+			if (distBetweenSuccessivePoints>= minDistBetweenSuccessivePointsOnCenter)
+    		{
+    		    mesh_newcenters->SetPoint(cit,mean_point);
+    			new_center->SetPointId(s,cit);
+    			last_mean_point = mean_point;
+    			++cit; ++s;
+    		}
+        }//if Sumpost<0
+        else //NO MATCHING POINT
+    	{
+    	  std::cout<<"A point on the center is not being updated!" << std::endl;
+    	}
+    	++mcit;
+   	  }
+   	  else //NO TRAJECTORIES
+   	  {//just copy the point from the center to newcenters
 
+   		  mesh_newcenters->SetPoint(cit,point);
+    	  new_center->SetPointId(s,cit);
+    	  ++cit; ++s; ++mcit;
       }
-    }
+    }//end for c -- point along the center
     mesh_newcenters->SetCell(k,new_center);
-  }
-
+  }//end for k (cluster)
   return mesh_newcenters;
 }
 
 
-MeshType::Pointer SmoothMesh(MeshType* mesh, VariableType distanceBetweenSamples)
+MeshType::Pointer SmoothMesh(MeshType* mesh, VariableType distanceBetweenSamples, bool justResample =0)
 {
   MeshType::Pointer smoothedMesh = MeshType::New();
   unsigned int NumberOfCells = mesh->GetNumberOfCells();
@@ -529,8 +514,15 @@ MeshType::Pointer SmoothMesh(MeshType* mesh, VariableType distanceBetweenSamples
       MyCurve.set_row(j, point.GetVnlVector());
       pit++;
     }
-    SmoothedCurve = SmoothCurve(MyCurve,distanceBetweenSamples);
-    SmoothedCurve = SmoothAndResampleCurve(SmoothedCurve, distanceBetweenSamples);
+    if (justResample)
+    {
+    	SmoothedCurve = SmoothAndResampleCurve(MyCurve, distanceBetweenSamples);
+    }
+    else
+    {
+    	SmoothedCurve = SmoothCurve(MyCurve,distanceBetweenSamples);
+    	SmoothedCurve = SmoothAndResampleCurve(SmoothedCurve, distanceBetweenSamples);
+    }
     //Put the new curve in the mesh:
     for (unsigned int j=0; j < SmoothedCurve.rows(); ++j)
     {
@@ -561,7 +553,6 @@ ArrayType diffMeshes(const MeshType* mesh1, const MeshType* mesh2)
   else
   {
     dist.fill(0);
-    //long unsigned int newpid = 0;
     for (unsigned int k=0; k<NumberOfCells1; ++k)
     {
       CellAutoPointer aCell1,aCell2;
@@ -670,7 +661,7 @@ void ComputeScalarMeasures(MeshType* Trajectories)
   }
 }
 
-Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, int clusterId, ImageType* refImage)
+Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, int clusterId)
 {
   Array2DType fMatrix1,fMatrix2,fMatrix3,fMatrix4;  // NxS (Number of Trajectories x Number of Samples on the Center)
   VariableType nanVal = -1;
@@ -681,65 +672,55 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
   fMatrix3.set_size(numberOfTrajectories,numberOfSamples);
   fMatrix4.set_size(numberOfTrajectories,numberOfSamples);
 
-  ImageType::IndexType ind;
   MeshType::PointType point;
   int MyLabel, currentLabel=0;
   for (unsigned int s=0; s<numberOfSamples; ++s)
   {
     center->GetPoint(s, &point);
-    if (refImage->TransformPhysicalPointToIndex(point, ind))
+    MyLabel = ++currentLabel;
+    //go over trajectories
+    for (unsigned long int t=0; t<numberOfTrajectories; ++t)
     {
-      //MyLabel = refImage->ComputeOffset(ind);
-    	MyLabel = ++currentLabel;
-        //go over trajectories
-    	for (unsigned long int t=0; t<numberOfTrajectories; ++t)
-    	{
-    		CellAutoPointer atrajectory;
-    		cluster->GetCell(t,atrajectory);
-    		PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
-    		MeshType::PointType tpoint;
-    		MeshType::PixelType tpointvalue;
+    	CellAutoPointer atrajectory;
+    	cluster->GetCell(t,atrajectory);
+    	PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+    	MeshType::PointType tpoint;
+    	MeshType::PixelType tpointvalue;
 
-    		double sumFeature1 = 0;
-    		double sumFeature2 = 0;
-    		double sumFeature3 = 0;
-    		double sumFeature4 = 0;
-    		int n=0;
-    		for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
-    		{
-    			cluster->GetPoint(*pit, &tpoint);
-    			cluster->GetPointData( *pit, &tpointvalue );
-    			if (tpointvalue.Correspondence(clusterId)==MyLabel)
-    			{
-    				sumFeature1 += tpointvalue.FA;
-    				sumFeature2 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
-    				sumFeature3 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
-    				sumFeature4 += tpointvalue.EigenValues[2];
-    				n++;
-    			}
-    			pit++;
-    		}
-    		if (sumFeature1>0)
-    		{
-    			fMatrix1[t][s] = sumFeature1/n;
-    			fMatrix2[t][s] = sumFeature2/n;
-    			fMatrix3[t][s] = sumFeature3/n;
-    			fMatrix4[t][s] = sumFeature4/n;
-    		}
-    		else
-    		{
-    			fMatrix1[t][s] = nanVal;
-    			fMatrix2[t][s] = nanVal;
-    			fMatrix3[t][s] = nanVal;
-    			fMatrix4[t][s] = nanVal;
-    		}
-    	}
+   		double sumFeature1 = 0;
+   		double sumFeature2 = 0;
+   		double sumFeature3 = 0;
+   		double sumFeature4 = 0;
+   		int n=0;
+   		for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
+   		{
+   			cluster->GetPoint(*pit, &tpoint);
+   			cluster->GetPointData( *pit, &tpointvalue );
+   			if (tpointvalue.Correspondence(clusterId)==MyLabel)
+   			{
+   				sumFeature1 += tpointvalue.FA;
+   				sumFeature2 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
+   				sumFeature3 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
+   				sumFeature4 += tpointvalue.EigenValues[2];
+   				n++;
+   			}
+   			pit++;
+   		}
+   		if (sumFeature1>0)
+   		{
+   			fMatrix1[t][s] = sumFeature1/n;
+   			fMatrix2[t][s] = sumFeature2/n;
+   			fMatrix3[t][s] = sumFeature3/n;
+   			fMatrix4[t][s] = sumFeature4/n;
+   		}
+   		else
+   		{
+   			fMatrix1[t][s] = nanVal;
+   			fMatrix2[t][s] = nanVal;
+   			fMatrix3[t][s] = nanVal;
+   			fMatrix4[t][s] = nanVal;
+   		}
     }
-    else
-    {
-    	std::cout<< "point is out of space"<< std::endl;
-    }
-
   } //end for
   Array3DType allFeatures;
   allFeatures.push_back(fMatrix1);
@@ -957,7 +938,7 @@ int main(int argc, char* argv[])
 	//use_atlas = 0;
 	//analysis = 1;
 	//
-	bool debug = 1;
+	bool debug = 0;
 	CopyFieldType copyField = {0,0,1,1,0,1};
 
 	// Get the input trajectories
@@ -1054,28 +1035,27 @@ int main(int argc, char* argv[])
 		std::cout << "Calculated tractography step size is " << tractographyStepSize << std::endl;
 
 		// set the space to the limits of input trajectories
-	    VariableType spaceResolution = 4*tractographyStepSize;  //space resolution >= tractographyStepSize
+	    VariableType spaceResolution = 4; //mm  initial value for the first iteration -- space resolution >= tractographyStepSize
 	    std::cout << "Setting the initial space resolution to " << spaceResolution << std::endl;
-	    samplesDistance = 2.0 * spaceResolution;
+	    samplesDistance = 5; //mm  initial value for the first iteration
 	    // Resample initial centers:
-	    Centers = SmoothMesh(Centers, samplesDistance);
+	    bool justResample =1;
+	    Centers = SmoothMesh(Centers, samplesDistance, justResample);
 
 
 		VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());
 		// If the number of clusters is 1:
-		if (MinPost>0.5)
-		{
-		  MinPost = 0.5;
-		}
-		VariableType MinLike = 0.1*MinLikelihoodThr;   // 5->0.5 ; 1 ->0.1
+		if (MinPost>0.5) { MinPost = 0.5;}
+
+		VariableType MinLike = 0.1*MinLikelihoodThr;
 
 		//EM Initialization
 
-		ArrayType alpha, beta, MyMinLikelihoodThr;
+		ArrayType alpha, beta, MyMinLikelihoodThr,dd;
 		Array2DType DissimilarityMatrix, Likelihood, Prior, Posterior; //NxK
 
 		alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1);
-		beta.SetSize(Centers->GetNumberOfCells()); beta.fill(7);
+		beta.SetSize(Centers->GetNumberOfCells()); beta.fill(10);
 		Prior.SetSize(Trajectories->GetNumberOfCells(),Centers->GetNumberOfCells());
 		bool havePrior = 0;
 		if (havePrior)
@@ -1088,9 +1068,6 @@ int main(int argc, char* argv[])
 			Prior.fill(initp);
 		}
 
-		ArrayType dd;
-		copyField.ClusterLabel = 1;
-
 		for (int i=0; i<maxNumberOfIterations; ++i)
 		{
 		  std::cout<< "Iteration  " << i+1 << std::endl;
@@ -1099,38 +1076,37 @@ int main(int argc, char* argv[])
 
 		  subSpace = getSubSpace(Trajectories, spaceResolution);
 
-		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, samplesDistance, tractographyStepSize);
-		  if (debug)
-		  {
-			  std::cout<< DissimilarityMatrix << std::endl;
-			  std::cout<< "beta = " << beta << std::endl;
-		  }
+		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, samplesDistance, tractographyStepSize, MaxDist);
 
 		  //EM Block Begins
 		  Likelihood = ComputeLikelihood(DissimilarityMatrix, alpha, beta);
-		  MeshType::Pointer RefinedTrajectories;
-		  MyMinLikelihoodThr = AdjustThreshold(MinLike, alpha, beta);
+		  MyMinLikelihoodThr = AdjustThreshold(MinLike, alpha, beta)/(i+1);
 
 		  if (debug)
 		  {
+			  std::cout<< DissimilarityMatrix << std::endl;
+			  std::cout << DissimilarityMatrix.max_value() << " " << DissimilarityMatrix.min_value() << std::endl;
 			  std::cout<< Likelihood << std::endl;
 			  std::cout<< "MyMinLikelihoodThr = " << MyMinLikelihoodThr << std::endl;
 		  }
 
-		  std::cout << Trajectories->GetNumberOfPoints() << " " << Trajectories->GetNumberOfCells()<< std::endl;
-		  RefinedTrajectories = RefineData(Trajectories,DissimilarityMatrix,Likelihood,Prior,MyMinLikelihoodThr,havePrior);
-		  std::cout << RefinedTrajectories->GetNumberOfPoints() << " " << RefinedTrajectories->GetNumberOfCells()<<std::endl;
+		  MeshType::Pointer RefinedTrajectories = RefineData(Trajectories,DissimilarityMatrix,Likelihood,Prior,MyMinLikelihoodThr,havePrior);
+		  std::cout << RefinedTrajectories->GetNumberOfCells() << " out of " << Trajectories->GetNumberOfCells() << " trajectories clustered " <<std::endl;
+
 		  if (RefinedTrajectories->GetNumberOfCells()<1)
 		  {
 			  std::cerr<< "The current setting of data/parameters have resulted in zero clustered trajectories"<<std::endl;
 			  return EXIT_FAILURE;
 		  }
+
 		  Posterior = ComputePosterior(Likelihood,Prior);
 		  UpdateModelParameters(DissimilarityMatrix,Posterior,alpha,beta,Prior,havePrior);
+
 		  //EM Block Ends
 
 		  if (debug)
 		  {
+			  std::cout << DissimilarityMatrix.max_value() << " " << DissimilarityMatrix.min_value() << std::endl;
 			  std::string tempFilename;
 			  tempFilename = OutputDirectory + "/trajectories_iter" + currentIteration.str() +".vtp";
 			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =1; copyField.CaseName=0;
@@ -1144,12 +1120,10 @@ int main(int argc, char* argv[])
 		  }
 
 		  //Update centers:
-		  MeshType::Pointer NewCenters;
-		  NewCenters = UpdateCenters(RefinedTrajectories, Centers, Posterior, subSpace, MinPost, MaxDist);
+		  MeshType::Pointer NewCenters = UpdateCenters(RefinedTrajectories, Centers, Posterior, MinPost);
 
 		  //Smooth centers:
-		  MeshType::Pointer SmoothedCenters;
-		  SmoothedCenters = SmoothMesh(NewCenters, samplesDistance);
+		  MeshType::Pointer SmoothedCenters = SmoothMesh(NewCenters, samplesDistance);
 
 		  if (debug)
 		  {
@@ -1171,15 +1145,13 @@ int main(int argc, char* argv[])
 			  //std::cout<< "Difference between new centers and old ones is "<< dd.max_value() <<std::endl;
 			  if (dd.max_value()<5) break;
 		  }
-		  spaceResolution = tractographyStepSize;  //space resolution >= tractographyStepSize
+		  spaceResolution = std::max(tractographyStepSize,(VariableType) 1.0);  //1mm space resolution >= tractographyStepSize
 		  std::cout << "Setting the space resolution to " << spaceResolution << std::endl;
-		  //samplesDistance = 2.0* spaceResolution;
-		  samplesDistance = 2.5; //mm
-
+		  samplesDistance = std::max((VariableType) 2.5* spaceResolution,(VariableType) 2.5); //mm
 		}
 
 	  AssignClusterLabels(Trajectories,Posterior);
-	  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0;
+	  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0; copyField.ClusterLabel = 1;
 	  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
 
 	  //Done with clustering.
@@ -1214,7 +1186,7 @@ int main(int argc, char* argv[])
 			  posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
 
 			  //Compute the feature matrices
-			  clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k, subSpace));
+			  clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k));
 			  if (clusterFeatures[k].at(0).rows()>0) //not empty
 			  {
 				  //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
