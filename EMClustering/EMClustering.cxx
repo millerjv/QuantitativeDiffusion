@@ -75,7 +75,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 			}
 			else
 			{
-				std::cout<<"Point "<< point<<" on the center "<< ClusterIdx <<" is out of the space"<<std::endl;
+				std::cout<<"Point "<< point<<" on the center "<< ClusterIdx+1  <<" is out of the space"<<std::endl;
 			}
 			++pit;
 		}
@@ -170,7 +170,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 							sumSinAngle += sqrt(1-cosAngle*cosAngle);
 						}
 
-						if (tempLabel< lastLabel || currentPointDist >maxDist)
+						if (currentPointDist >maxDist)//(tempLabel< lastLabel || currentPointDist >maxDist)
 						{
 							pointvalue.Correspondence[ClusterIdx] = -100; //NaN
 						}
@@ -206,7 +206,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, MeshType* mesh_centers, ImageTy
 		}
 		else
 		{
-			std::cout<< "Center "<< ClusterIdx <<" is out of space."<< std::endl;
+			std::cout<< "Center "<< ClusterIdx+1 <<" is out of space."<< std::endl;
 		}
 
 	}
@@ -382,7 +382,7 @@ MeshType::Pointer UpdateCenters(MeshType* mesh, MeshType* mesh_centers, const Ar
 
     if(sigIDs.size()<1)
     {
-    	std::cout<< "Center " << k << " is not being updated" <<std::endl;
+    	std::cout<< "Center " << k+1 << " is not being updated" <<std::endl;
     }
 
     CellAutoPointer Centerline, new_center;
@@ -967,7 +967,7 @@ int main(int argc, char* argv[])
 	// Get the intialcenter(s)
 	if (use_atlas)
 	{
-		std::string path;
+		std::string path = atlas_directory;
 		if (atlas_directory[0] == '.')
 		{
 			path = itksys::SystemTools::GetFilenamePath(argv[0]);
@@ -981,20 +981,22 @@ int main(int argc, char* argv[])
 		atlasFilename = path +"/atlasFAMap.nhdr";
 		typedef itk::ImageFileReader< ImageType > ReaderType;
 		ReaderType::Pointer reader = ReaderType::New();
+		std::cout << "Reading " << atlasFilename << " ..." <<std::endl;
 		reader->SetFileName(atlasFilename);
 		reader->Update();
 		ImageType::Pointer atlasFAVolume = reader->GetOutput();
 		//Read FA map of the case
 		ReaderType::Pointer reader2 = ReaderType::New();
 		reader2->SetFileName(subjectFAFilename.c_str());
+		std::cout << "Reading " << subjectFAFilename.c_str() << " ..." <<std::endl;
 		reader2->Update();
 		ImageType::Pointer caseFAVolume = reader2->GetOutput();
-		//Read which bundles are selected to be clustered:
+		//Read which bundles are selected to be clustered:           /// needs to be standardized
 		std::vector<unsigned long int> atlasCellIDs;
-		if (splenium)
-		{atlasCellIDs.push_back(0);}
 		if (genu)
-		{atlasCellIDs.push_back(2);}
+		{atlasCellIDs.push_back(0);}//{atlasCellIDs.push_back(2);}
+		if (splenium)
+		{atlasCellIDs.push_back(1);}//{atlasCellIDs.push_back(0);}
 		if (cingulumR)
 		{atlasCellIDs.push_back(3);}
 		if (cingulumL)
@@ -1004,6 +1006,7 @@ int main(int argc, char* argv[])
 		{
 			//Do affine registration
 			TransformType::Pointer transform;
+			std::cout << "Registering the atlas' FA volume to subject's ..." << std::endl;
 			transform = doAffineRegistration(caseFAVolume, atlasFAVolume);
 			//Select and transfer the centers
 			Centers = applyTransform(atlasCenters, transform, atlasCellIDs );

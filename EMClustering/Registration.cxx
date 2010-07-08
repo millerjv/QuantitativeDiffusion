@@ -1,6 +1,9 @@
 
 #include "EMClusteringIO.h"
 #include "Registration.h"
+#include "itkImageFileReader.h"
+#include "itkImageFileWriter.h"
+
 
 class CommandIterationUpdate : public itk::Command
 {
@@ -78,11 +81,12 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
   optimizerScales[11] =  translationScale;
 
   optimizer->SetScales( optimizerScales );
-  unsigned int maxNumberOfIterations = 10;
+  unsigned int maxNumberOfIterations = 100;
   optimizer->SetMaximumStepLength( 0.1 );
-  optimizer->SetMinimumStepLength( 0.001 );
+  optimizer->SetMinimumStepLength( 0.01 );
   optimizer->SetNumberOfIterations( maxNumberOfIterations );
   optimizer->MinimizeOn();
+
 
   //CommandIterationUpdate::Pointer observer = CommandIterationUpdate::New();
   //optimizer->AddObserver( itk::IterationEvent(), observer );
@@ -104,47 +108,101 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
   finalTransform->SetCenter( transform->GetCenter() );
   finalTransform->SetParameters( finalParameters );
 
+//////////////////////////////////
+  typedef itk::ResampleImageFilter< ImageType, ImageType >    ResampleFilterType;
+  ResampleFilterType::Pointer resampler = ResampleFilterType::New();
+  resampler->SetTransform( finalTransform );
+  resampler->SetInput( atlasFAVolume );
+
+  resampler->SetSize( caseFAVolume->GetLargestPossibleRegion().GetSize() );
+  resampler->SetOutputOrigin(  caseFAVolume->GetOrigin() );
+  resampler->SetOutputSpacing( caseFAVolume->GetSpacing() );
+  resampler->SetOutputDirection( caseFAVolume->GetDirection() );
+
+  typedef itk::ImageFileWriter< ImageType >  WriterType;
+
+  WriterType::Pointer      writer =  WriterType::New();
+
+  writer->SetFileName( "TransformedFA.nhdr" );
+  writer->SetInput( resampler->GetOutput() );
+  writer->Update();
+
+  typedef  unsigned char  OutputPixelType;
+
+  typedef itk::OrientedImage< OutputPixelType, PointDimension > OutputImageType;
+  typedef itk::SubtractImageFilter<
+                                   ImageType,
+                                   ImageType,
+                                   ImageType > DifferenceFilterType;
+
+   DifferenceFilterType::Pointer difference = DifferenceFilterType::New();
+
+   difference->SetInput1( caseFAVolume );
+   difference->SetInput2( resampler->GetOutput() );
+
+   typedef itk::ImageFileWriter< OutputImageType >  WriterType2;
+   WriterType2::Pointer writer2 = WriterType2::New();
+
+   typedef itk::RescaleIntensityImageFilter<
+                                   ImageType,
+                                   OutputImageType >   RescalerType;
+
+   RescalerType::Pointer intensityRescaler = RescalerType::New();
+
+   intensityRescaler->SetInput( difference->GetOutput() );
+   intensityRescaler->SetOutputMinimum(   0 );
+   intensityRescaler->SetOutputMaximum( 255 );
+
+   writer2->SetInput( intensityRescaler->GetOutput() );
+   resampler->SetDefaultPixelValue( 1 );
+
+   writer2->SetFileName( "differenceVolume.nhdr" );
+   writer2->Update();
+
+   finalTransform->Print(std::cout);
   return finalTransform;
 }
 
 MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transform, std::vector<unsigned long int> CellIDs)
 {
+	//inverse affine transform should be applied to the points:
+	//transform->Print(std::cout);
+    //TransformType::ParametersType invTransParams;
+	TransformType::Pointer invTransform = TransformType::New();
+	invTransform->SetCenter(transform->GetCenter());
+	transform->GetInverse(invTransform);
+	invTransform->Print(std::cout);
 
-  MeshType::Pointer transformedCenters=MeshType::New();
-  CellAutoPointer aCell, MyCell;
-  long int myid =0;
+	MeshType::Pointer transformedCenters=MeshType::New();
+	CellAutoPointer aCell, MyCell;
+	long int myid =0;
 
-  for (unsigned int c=0; c<CellIDs.size(); ++c)
-  {
-    MyCell.TakeOwnership( new PolylineType );
-    MeshType::CellIdentifier CellID = CellIDs.at(c);
-    atlasCenters->GetCell(CellID, aCell);
-    CellDataType cellvalue;
-    atlasCenters->GetCellData(CellID, &cellvalue);
-    PolylineType::PointIdIterator pit = aCell->PointIdsBegin();
-    MeshType::PointType point, tpoint;
-    MeshType::PixelType pointvalue;
-    TransformType::ParametersType invTransParams;
-    TransformType::Pointer invTransform = TransformType::New();
-    invTransParams = transform->GetInverseTransform()->GetParameters();
-    invTransform->SetCenter( transform->GetCenter() );
-    invTransform->SetParameters( invTransParams );
-    for (unsigned int j=0; j < aCell->GetNumberOfPoints(); j++)
-    {
-      atlasCenters->GetPoint(*pit, &point);
-      atlasCenters->GetPointData(*pit, &pointvalue);
-      //tpoint = transform->GetInverseTransform()->TransformPoint(point);
-      tpoint = invTransform->TransformPoint(point);
-      transformedCenters->SetPoint(myid, tpoint );
-      transformedCenters->SetPointData(myid, pointvalue );
-      MyCell->SetPointId(j,myid);
-      pit++; myid++;
-    }
-    transformedCenters->SetCell(c, MyCell);
-    transformedCenters->SetCellData(c, cellvalue);
+	for (unsigned int c=0; c<CellIDs.size(); ++c)
+	{
+		MyCell.TakeOwnership( new PolylineType );
+		MeshType::CellIdentifier CellID = CellIDs.at(c);
+		atlasCenters->GetCell(CellID, aCell);
+		CellDataType cellvalue;
+		atlasCenters->GetCellData(CellID, &cellvalue);
+		PolylineType::PointIdIterator pit = aCell->PointIdsBegin();
+		MeshType::PointType point, tpoint;
+		MeshType::PixelType pointvalue;
 
-  }
+		for (unsigned int j=0; j < aCell->GetNumberOfPoints(); j++)
+		{
+			atlasCenters->GetPoint(*pit, &point);
+			atlasCenters->GetPointData(*pit, &pointvalue);
+			tpoint = invTransform->TransformPoint(point);
+			transformedCenters->SetPoint(myid, tpoint );
+			transformedCenters->SetPointData(myid, pointvalue );
+			MyCell->SetPointId(j,myid);
+			pit++; myid++;
+		}
+		transformedCenters->SetCell(c, MyCell);
+		transformedCenters->SetCellData(c, cellvalue);
 
-  return transformedCenters;
+	}
+
+	return transformedCenters;
 }
 

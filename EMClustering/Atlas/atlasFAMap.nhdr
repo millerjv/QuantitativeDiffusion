@@ -8,6 +8,6 @@ sizes: 128 128 100
 space directions: (1.60156,0,0) (0,1.5636,-0.346642) (0,0.324659,1.46444)
 kinds: domain domain domain
 endian: little
-encoding: gzip
+encoding: raw
 space origin: (0,0,0)
-data file: atlasFAMap.raw.gz
+data file: atlasFAMap.raw
