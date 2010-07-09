@@ -1,6 +1,8 @@
 //#include "EMClusteringIO.h"
 
 #include "itkAffineTransform.h"
+#include "itkMultiResolutionImageRegistrationMethod.h"
+#include "itkRecursiveMultiResolutionPyramidImageFilter.h"
 #include "itkImageRegistrationMethod.h"
 #include "itkMeanSquaresImageToImageMetric.h"
 #include "itkLinearInterpolateImageFunction.h"
@@ -19,7 +21,7 @@ typedef itk::AffineTransform<CoordinateType,PointDimension>            Transform
 typedef itk::RegularStepGradientDescentOptimizer                       OptimizerType;
 typedef itk::MeanSquaresImageToImageMetric<ImageType,ImageType>        MetricType;
 typedef itk::LinearInterpolateImageFunction<ImageType,CoordinateType>  InterpolatorType;
-typedef itk::ImageRegistrationMethod<ImageType,ImageType >             RegistrationType;
 
-TransformType::Pointer doAffineRegistration(ImageType* , ImageType* );
+
+TransformType::Pointer doAffineRegistration(ImageType* , ImageType* , std::string);
 MeshType::Pointer applyTransform(MeshType* , TransformType* , std::vector<unsigned long int> );

@@ -1007,7 +1007,7 @@ int main(int argc, char* argv[])
 			//Do affine registration
 			TransformType::Pointer transform;
 			std::cout << "Registering the atlas' FA volume to subject's ..." << std::endl;
-			transform = doAffineRegistration(caseFAVolume, atlasFAVolume);
+			transform = doAffineRegistration(caseFAVolume, atlasFAVolume, OutputDirectory);
 			//Select and transfer the centers
 			Centers = applyTransform(atlasCenters, transform, atlasCellIDs );
 			CopyFieldType copyField = {0,0,0,0};

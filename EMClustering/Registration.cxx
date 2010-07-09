@@ -4,6 +4,93 @@
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
 
+#include "itkCommand.h"
+/*class CommandIterationUpdate : public itk::Command
+{
+public:
+  typedef  CommandIterationUpdate   Self;
+  typedef  itk::Command             Superclass;
+  typedef  itk::SmartPointer<Self>  Pointer;
+  itkNewMacro( Self );
+protected:
+  CommandIterationUpdate(): m_CumulativeIterationIndex(0) {};
+public:
+  typedef   itk::RegularStepGradientDescentOptimizer  OptimizerType;
+  typedef   const OptimizerType *                     OptimizerPointer;
+
+  void Execute(itk::Object *caller, const itk::EventObject & event)
+    {
+    Execute( (const itk::Object *)caller, event);
+    }
+
+  void Execute(const itk::Object * object, const itk::EventObject & event)
+    {
+    OptimizerPointer optimizer =
+      dynamic_cast< OptimizerPointer >( object );
+    if( !(itk::IterationEvent().CheckEvent( &event )) )
+      {
+      return;
+      }
+    std::cout << optimizer->GetCurrentIteration() << "   ";
+    std::cout << optimizer->GetValue() << "   ";
+    std::cout << optimizer->GetCurrentPosition() << "  " <<
+      m_CumulativeIterationIndex++ << std::endl;
+    }
+private:
+  unsigned int m_CumulativeIterationIndex;
+};
+*/
+
+//  The following section of code implements a Command observer
+//  that will control the modification of optimizer parameters
+//  at every change of resolution level.
+//
+template <typename TRegistration>
+class RegistrationInterfaceCommand : public itk::Command
+{
+public:
+  typedef  RegistrationInterfaceCommand   Self;
+  typedef  itk::Command                   Superclass;
+  typedef  itk::SmartPointer<Self>        Pointer;
+  itkNewMacro( Self );
+protected:
+  RegistrationInterfaceCommand() {};
+public:
+  typedef   TRegistration                              RegistrationType;
+  typedef   RegistrationType *                         RegistrationPointer;
+  typedef   itk::RegularStepGradientDescentOptimizer   OptimizerType;
+  typedef   OptimizerType *                            OptimizerPointer;
+  void Execute(itk::Object * object, const itk::EventObject & event)
+  {
+    if( !(itk::IterationEvent().CheckEvent( &event )) )
+      {
+      return;
+      }
+    RegistrationPointer registration =
+                        dynamic_cast<RegistrationPointer>( object );
+    OptimizerPointer optimizer = dynamic_cast< OptimizerPointer >(
+                       registration->GetOptimizer() );
+
+    std::cout << "-------------------------------------" << std::endl;
+    std::cout << "MultiResolution Level : "
+              << registration->GetCurrentLevel()  << std::endl;
+    std::cout << std::endl;
+
+    if ( registration->GetCurrentLevel() == 0 )
+      {
+      optimizer->SetMaximumStepLength( 8.00 );
+      optimizer->SetMinimumStepLength(  0.1 );
+      }
+    else
+      {
+      optimizer->SetMaximumStepLength( optimizer->GetMaximumStepLength() / 4.0 );
+      optimizer->SetMinimumStepLength( optimizer->GetMinimumStepLength() / 10.0 );
+      }
+  }
+  void Execute(const itk::Object * , const itk::EventObject & )
+    { return; }
+};
+
 
 class CommandIterationUpdate : public itk::Command
 {
@@ -37,59 +124,73 @@ public:
     }
 };
 
-TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* atlasFAVolume)
+
+TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* atlasFAVolume, std::string OutputDirectory)
 {
-  MetricType::Pointer         metric        = MetricType::New();
-  OptimizerType::Pointer      optimizer     = OptimizerType::New();
-  InterpolatorType::Pointer   interpolator  = InterpolatorType::New();
-  RegistrationType::Pointer   registration  = RegistrationType::New();
+	typedef itk::MultiResolutionImageRegistrationMethod< ImageType, ImageType    > RegistrationType;
+	typedef itk::RecursiveMultiResolutionPyramidImageFilter<ImageType, ImageType  >  FixedImagePyramidType;
+	typedef itk::RecursiveMultiResolutionPyramidImageFilter<ImageType, ImageType  >   MovingImagePyramidType;
 
-  registration->SetMetric(        metric        );
-  registration->SetOptimizer(     optimizer     );
-  registration->SetInterpolator(  interpolator  );
-  TransformType::Pointer  transform = TransformType::New();
-  registration->SetTransform( transform );
+	FixedImagePyramidType::Pointer fixedImagePyramid = FixedImagePyramidType::New();
+	MovingImagePyramidType::Pointer movingImagePyramid = MovingImagePyramidType::New();
 
-  registration->SetFixedImage(caseFAVolume );
-  registration->SetMovingImage(atlasFAVolume);
+	MetricType::Pointer         metric        = MetricType::New();
+	OptimizerType::Pointer      optimizer     = OptimizerType::New();
+	InterpolatorType::Pointer   interpolator  = InterpolatorType::New();
+	RegistrationType::Pointer   registration  = RegistrationType::New();
 
-  registration->SetFixedImageRegion( caseFAVolume->GetBufferedRegion() );
+	registration->SetMetric(        metric        );
+	registration->SetOptimizer(     optimizer     );
+	registration->SetInterpolator(  interpolator  );
+	TransformType::Pointer  transform = TransformType::New();
+	registration->SetTransform( transform );
 
-  typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType >  TransformInitializerType;
-  TransformInitializerType::Pointer initializer = TransformInitializerType::New();
-  initializer->SetTransform(   transform );
-  initializer->SetFixedImage( caseFAVolume );
-  initializer->SetMovingImage( atlasFAVolume );
-  initializer->MomentsOn();
-  initializer->InitializeTransform();
-  registration->SetInitialTransformParameters( transform->GetParameters() );
-  double translationScale = 1.0 / 1000.0;
-  typedef OptimizerType::ScalesType       OptimizerScalesType;
-  OptimizerScalesType optimizerScales( transform->GetNumberOfParameters() );
-
-  optimizerScales[0] =  1.0;
-  optimizerScales[1] =  1.0;
-  optimizerScales[2] =  1.0;
-  optimizerScales[3] =  1.0;
-  optimizerScales[4] =  1.0;
-  optimizerScales[5] =  1.0;
-  optimizerScales[6] =  1.0;
-  optimizerScales[7] =  1.0;
-  optimizerScales[8] =  1.0;
-  optimizerScales[9]  =  translationScale;
-  optimizerScales[10] =  translationScale;
-  optimizerScales[11] =  translationScale;
-
-  optimizer->SetScales( optimizerScales );
-  unsigned int maxNumberOfIterations = 100;
-  optimizer->SetMaximumStepLength( 0.1 );
-  optimizer->SetMinimumStepLength( 0.01 );
-  optimizer->SetNumberOfIterations( maxNumberOfIterations );
-  optimizer->MinimizeOn();
+	registration->SetFixedImagePyramid( fixedImagePyramid );
+	registration->SetMovingImagePyramid( movingImagePyramid );
 
 
-  //CommandIterationUpdate::Pointer observer = CommandIterationUpdate::New();
-  //optimizer->AddObserver( itk::IterationEvent(), observer );
+    registration->SetFixedImage(caseFAVolume );
+    registration->SetMovingImage(atlasFAVolume);
+
+    registration->SetFixedImageRegion( caseFAVolume->GetBufferedRegion() );
+    registration->SetNumberOfLevels( 3 );
+
+    typedef itk::CenteredTransformInitializer< TransformType, ImageType, ImageType >  TransformInitializerType;
+    TransformInitializerType::Pointer initializer = TransformInitializerType::New();
+    initializer->SetTransform(   transform );
+    initializer->SetFixedImage( caseFAVolume );
+    initializer->SetMovingImage( atlasFAVolume );
+    initializer->MomentsOn();
+    initializer->InitializeTransform();
+    registration->SetInitialTransformParameters( transform->GetParameters() );
+    double translationScale = 1.0 / 1000.0;
+    typedef OptimizerType::ScalesType       OptimizerScalesType;
+    OptimizerScalesType optimizerScales( transform->GetNumberOfParameters() );
+
+    optimizerScales[0] =  1.0;
+    optimizerScales[1] =  1.0;
+    optimizerScales[2] =  1.0;
+    optimizerScales[3] =  1.0;
+    optimizerScales[4] =  1.0;
+    optimizerScales[5] =  1.0;
+    optimizerScales[6] =  1.0;
+    optimizerScales[7] =  1.0;
+    optimizerScales[8] =  1.0;
+    optimizerScales[9]  =  translationScale;
+    optimizerScales[10] =  translationScale;
+    optimizerScales[11] =  translationScale;
+
+    optimizer->SetScales( optimizerScales );
+    unsigned int maxNumberOfIterations = 100;
+    optimizer->SetNumberOfIterations( maxNumberOfIterations );
+    optimizer->MinimizeOn();
+
+   CommandIterationUpdate::Pointer observer = CommandIterationUpdate::New();
+   optimizer->AddObserver( itk::IterationEvent(), observer );
+
+   typedef RegistrationInterfaceCommand<RegistrationType> CommandType;
+   CommandType::Pointer command = CommandType::New();
+   registration->AddObserver( itk::IterationEvent(), command );
 
   try
     {
@@ -122,8 +223,9 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
   typedef itk::ImageFileWriter< ImageType >  WriterType;
 
   WriterType::Pointer      writer =  WriterType::New();
-
-  writer->SetFileName( "TransformedFA.nhdr" );
+  std::cout << "Writing the transformed FA volume ..." << std::endl;
+  std::string filename = OutputDirectory + "/TransformedFA.nhdr";
+  writer->SetFileName( filename );
   writer->SetInput( resampler->GetOutput() );
   writer->Update();
 
@@ -155,11 +257,12 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
 
    writer2->SetInput( intensityRescaler->GetOutput() );
    resampler->SetDefaultPixelValue( 1 );
-
-   writer2->SetFileName( "differenceVolume.nhdr" );
+   filename = OutputDirectory + "/differenceVolume.nhdr";
+   std::cout << "Writing the difference volume ..." << std::endl;
+   writer2->SetFileName( filename );
    writer2->Update();
 
-   finalTransform->Print(std::cout);
+   //finalTransform->Print(std::cout);
   return finalTransform;
 }
 
@@ -171,7 +274,7 @@ MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transfor
 	TransformType::Pointer invTransform = TransformType::New();
 	invTransform->SetCenter(transform->GetCenter());
 	transform->GetInverse(invTransform);
-	invTransform->Print(std::cout);
+	//invTransform->Print(std::cout);
 
 	MeshType::Pointer transformedCenters=MeshType::New();
 	CellAutoPointer aCell, MyCell;
