@@ -1,4 +1,8 @@
 
+#ifndef __myMaths_h_included_
+#define __myMaths_h_included_
+
+#include "Common.h"
 #include "vnl/vnl_gamma.h"
 
 typedef itk::Array2D<CoordinateType>                        CurveType;
@@ -9,9 +13,9 @@ ArrayType meanMat(const Array2DType &, int );
 ArrayType stdMat(const Array2DType &, int );
 ArrayType meanMat(Array2DType, Array2DType, int);
 VariableType Gamma(VariableType, VariableType, VariableType);
-Array2DType ComputePosterior(const Array2DType &, const Array2DType &);
-Array2DType ComputeLikelihood(const Array2DType &, ArrayType, ArrayType);
 CurveType SmoothCurve(CurveType, VariableType);
 VariableType diffCurve(CurveType, CurveType);
 CurveType SmoothAndResampleCurve(CurveType, VariableType);
 std::vector<CoordinateType> getArcLengthParameterization(CurveType);
+
+#endif // #ifndef

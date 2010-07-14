@@ -1,10 +1,5 @@
-
-#include "EMClusteringIO.h"
 #include "Registration.h"
-#include "itkImageFileReader.h"
-#include "itkImageFileWriter.h"
 
-#include "itkCommand.h"
 /*class CommandIterationUpdate : public itk::Command
 {
 public:

@@ -33,21 +33,22 @@ IF(VTK_FOUND)
   INCLUDE(${VTK_USE_FILE})
 ENDIF(VTK_FOUND)
 
-set (CLP EMClustering)
-set ( ${CLP}_SOURCE ${CLP}.cxx)
-
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-GenerateCLP(${CLP}.cxx ${CLP}.xml)
-ADD_EXECUTABLE(${CLP} ${CLP}.cxx ${CLP}IO.cxx Registration.cxx myMaths.cxx)
-TARGET_LINK_LIBRARIES( ${CLP} ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
-  
-#add_library(${CLP}Lib SHARED ${${CLP}_SOURCE})
+add_library(ClusteringLib EMClusteringIO.cxx Registration.cxx myMaths.cxx EMCore.cxx MeshOperations.cxx Quantification.cxx)
 #set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
-#target_link_libraries (${CLP}Lib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
+
+set (CLP_LIST EMClustering EMCMedialSheet)
+
+foreach(CLP ${CLP_LIST})
+set ( ${CLP}_SOURCE ${CLP}.cxx)
+GenerateCLP(${CLP}.cxx ${CLP}.xml)
+
+add_executable(${CLP} ${CLP}.cxx)
+target_link_libraries( ${CLP} ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 slicer3_set_plugins_output_path(${CLP})
- 
+endforeach(CLP)
 
 set(Slicer3_EXE ${Slicer3_DIR}/Slicer3)
 

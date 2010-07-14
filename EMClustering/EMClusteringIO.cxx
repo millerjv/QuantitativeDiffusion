@@ -1,7 +1,6 @@
 
 #include <EMClusteringIO.h>
 
-
 vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
 {
   vtkPolyData* polydata = vtkPolyData::New();

@@ -1,4 +1,4 @@
-#include "EMClusteringIO.h"
+
 #include <myMaths.h>
 #include <itkThinPlateSplineKernelTransform.h>
 
@@ -160,58 +160,7 @@ VariableType Gamma(VariableType x, VariableType alpha, VariableType beta)
   return gammaPdf;
 }
 
-Array2DType ComputePosterior(const Array2DType &Likelihood, const Array2DType &Prior)
-{
-  Array2DType Posterior;
-  Posterior = element_product(Likelihood, Prior);
-  //now normalize it:
-  if (Likelihood.cols() == 1)
-  {
-    Posterior /= Posterior.max_value();
-  }
 
-  else if (Likelihood.cols() > 1)
-  {
-    for (unsigned int r = 0; r<Posterior.rows(); ++r)
-    {
-      VariableType n = Posterior.get_row(r).sum();
-      if (n>0)
-      {
-        Posterior.scale_row(r, 1/n);
-      }
-    }
-  }
-
-  //std::cout<< Posterior << std::endl;
-  return Posterior; //NxK
-}
-
-Array2DType ComputeLikelihood(const Array2DType &DissimilarityMatrix, ArrayType alpha, ArrayType beta)
-{
-  unsigned int NumberOfClusters = DissimilarityMatrix.cols();
-  unsigned int NumberOfTrajectories = DissimilarityMatrix.rows();
-
-  Array2DType Likelihood;
-  Likelihood.SetSize(NumberOfTrajectories,NumberOfClusters);
-
-  for (unsigned int k=0; k<NumberOfClusters; ++k)
-  {
-    if (beta[k]>0) //valid distribution
-    {
-      for (unsigned long int n=0; n<NumberOfTrajectories; ++n)
-      {
-        VariableType x = DissimilarityMatrix(n,k);
-        Likelihood[n][k] = Gamma(x,alpha[k],beta[k]);
-      }
-    }
-    else
-    {
-      const VariableType z = 0;
-      Likelihood.set_column(k,z);
-    }
-  }
-  return Likelihood; //NxK
-}
 
 CurveType SmoothCurve(CurveType Curve, VariableType samplesDistance)
 {
