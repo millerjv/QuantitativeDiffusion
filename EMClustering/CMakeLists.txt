@@ -45,7 +45,7 @@ set ( ${CLP}_SOURCE ${CLP}.cxx)
 GenerateCLP(${CLP}.cxx ${CLP}.xml)
 
 add_executable(${CLP} ${CLP}.cxx)
-target_link_libraries( ${CLP} ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
+target_link_libraries( ${CLP} ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms ITKBasicFilters)
   
 slicer3_set_plugins_output_path(${CLP})
 endforeach(CLP)

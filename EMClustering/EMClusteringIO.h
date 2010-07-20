@@ -25,6 +25,10 @@ MeshType::Pointer ReadVTKfile(std::string);
 
 MeshType::Pointer ReadVTKfiles(std::vector<std::string>);
 
+ImageType::Pointer ReadImageVolume(std::string);
+
+void WriteImageVolume(ImageType* , std::string);
+
 void WriteCSVfile(std::string, const Array2DType &);
 
 void writeMCSVfile(std::string, const ArrayType, const ArrayType, const std::vector<std::string> & );

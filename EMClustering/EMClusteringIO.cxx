@@ -292,6 +292,27 @@ MeshType::Pointer ReadVTKfiles(std::vector<std::string> allfilenames)
 	return popMesh;
 }
 
+ImageType::Pointer ReadImageVolume(std::string filename)
+{
+   typedef itk::ImageFileReader< ImageType >  ReaderType;
+   ReaderType::Pointer reader = ReaderType::New();
+   reader->SetFileName(filename.c_str());
+   std::cout << "Reading " << filename.c_str() << " ..." <<std::endl;
+   reader->Update();
+   return reader->GetOutput();
+}
+
+void WriteImageVolume(ImageType* vol, std::string filename)
+{
+   typedef itk::ImageFileWriter< ImageType >  WriterType;
+   WriterType::Pointer writer = WriterType::New();
+   writer->SetFileName(filename.c_str());
+   std::cout << "Writing " << filename.c_str() << " ..." <<std::endl;
+   writer->SetInput(vol);
+   writer->Update();
+}
+
+
 void WriteCSVfile(std::string fileName, const Array2DType &mat)
 {
   ofstream myfile;
