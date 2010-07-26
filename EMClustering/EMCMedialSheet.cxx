@@ -12,6 +12,13 @@
 
 #include "itkBinaryMask3DMeshSource.h"
 #include "itkVotingBinaryIterativeHoleFillingImageFilter.h"
+#include <vtkUnstructuredGridReader.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkHexahedron.h>
+#include <vtkIdTypeArray.h>
+#include "itkAutomaticTopologyMeshSource.h"
+#include <itkQuadrilateralCell.h>
+
 
 #include "EMCMedialSheetCLP.h"
 
@@ -50,19 +57,7 @@ ImageType::Pointer itkMeshToBinaryVolume(const MeshType* mesh, const ImageType* 
 
 	return vol;
 }
-/*
-MeshType::Pointer extractSurface(const ImageType* vol)
-{
-	MeshType::Pointer surface = MeshType::New();
-	typedef itk::BinaryMask3DMeshSource< ImageType, MeshType >   MeshSourceType;
-    MeshSourceType::Pointer meshSource = MeshSourceType::New();
-    meshSource->SetObjectValue( 1 );
-    meshSource->SetInput(vol);
-    meshSource->Update();
-    surface = meshSource->GetOutput();
-	return surface;
-}
-*/
+
 ImageType* removeHoles(const ImageType* vol)
 {
 	typedef itk::VotingBinaryIterativeHoleFillingImageFilter< ImageType >  FilterType;
@@ -92,12 +87,174 @@ ImageType* removeHoles(const ImageType* vol)
 	return filter->GetOutput();
 }
 
+bool isEqual(std::vector<int> l1, std::vector<int> l2)
+{
+	bool flag=1;
+	if (l1.size() != l2.size())
+		flag = 0;
+	else
+	{
+		for (unsigned int i=0; i<l1.size(); i++)
+		{
+			if (l1[i]!=l2[i])
+			{
+			  flag =0;
+			  break;
+			}
+		}
+	}
+	return flag;
+}
+
+
+bool  hasNoTouchingFace(std::vector <std::vector<int> > linkLists, vtkIdList* ptsIds, int* facePIds)
+{
+	bool hasNoNei;
+	std::vector<int> l1,l2,l3,l0;
+	l0= linkLists.at(ptsIds->GetId(facePIds[0]));
+	l1= linkLists.at(ptsIds->GetId(facePIds[1]));
+	l2= linkLists.at(ptsIds->GetId(facePIds[2]));
+	l3= linkLists.at(ptsIds->GetId(facePIds[3]));
+
+	if (isEqual(l0,l1) || isEqual(l0,l2) || isEqual(l0,l3) || isEqual(l1,l2) || isEqual(l1,l3) || isEqual(l2,l3))
+	    hasNoNei = 0;
+	else //unique
+		hasNoNei = 1;
+
+	return hasNoNei;
+}
+
+MeshType::PointType  ave(MeshType::PointType p1, MeshType::PointType p2)
+{
+	MeshType::PointType midPoint;
+	midPoint[0]	= (p1[0]+p2[0])/2;
+	midPoint[1]	= (p1[1]+p2[1])/2;
+	midPoint[2]	= (p1[2]+p2[2])/2;
+	return midPoint;
+}
+
+
+
 int main(int argc, char* argv[])
 {
-	PARSE_ARGS;
+//	PARSE_ARGS;
 
-	MeshType::Pointer    Trajectories, Surface;
-	ImageType::Pointer Trajectories_Volume;
+
+	typedef itk::AutomaticTopologyMeshSource< MeshType > MeshSourceType;
+	MeshSourceType::Pointer midSurface = MeshSourceType::New();
+
+	std::string filename ="/fs/corpus1/mahnaz/vtkMRMLFiniteElementMeshNode1.vtk";
+
+    vtkUnstructuredGridReader *reader = vtkUnstructuredGridReader::New();
+    reader->SetFileName( filename.c_str() );
+    std::cout<< "Reading "<<filename.c_str()<< "..."<<std::endl;
+	reader->Update();
+	vtkUnstructuredGrid* hexahedralGrid = reader->GetOutput();
+	vtkIdType NCells = hexahedralGrid->GetNumberOfCells();
+	hexahedralGrid->BuildLinks();
+	vtkCellLinks* cellLinks = hexaheCopyFieldType copyFielddralGrid->GetCellLinks();
+
+	vtkIdType NPoints = hexahedralGrid->GetNumberOfPoints();
+	std::vector <std::vector<int> > linkLists;
+
+	for (unsigned int pid=0; pid<NPoints; pid++ )
+	{
+	 vtkIdType *links = cellLinks->GetCells(pid);
+	 int nlinks = cellLinks->GetNcells(pid);
+	 std::vector<int> list;
+	 for (int j=0; j<nlinks; j++)
+	 {
+		list.push_back(links[j]);
+	 }
+	 linkLists.push_back(list);
+	}
+
+	for (unsigned int c=0; c<NCells; c++)
+	{
+		vtkCell* aCell;
+		aCell = hexahedralGrid->GetCell(c);
+		vtkPoints* points = aCell->GetPoints();
+		vtkIdList* ptsIds = aCell->GetPointIds();
+		//face: {0,1,2,3}
+		int face1PIds[4] = {0,1,2,3};
+		bool face1 =  hasNoTouchingFace(linkLists, ptsIds, face1PIds);
+        //face: {4,5,6,7}
+		int face2PIds[4] = {4,5,6,7};
+		bool face2 =  hasNoTouchingFace(linkLists, ptsIds, face2PIds);
+		//face: {0,1,5,4}
+		int face3PIds[4] = {0,1,5,4};
+		bool face3 =  hasNoTouchingFace(linkLists, ptsIds, face3PIds);
+		//face: {3,7,6,2}
+		int face4PIds[4] = {3,7,6,2};
+		bool face4 =  hasNoTouchingFace(linkLists, ptsIds, face4PIds);
+		//face: {0,4,7,3}
+		int face5PIds[4] = {0,4,7,3};
+		bool face5 =  hasNoTouchingFace(linkLists, ptsIds, face5PIds);
+		//face: {1,2,6,5}
+		int face6PIds[4] = {1,2,6,5};
+		bool face6 =  hasNoTouchingFace(linkLists, ptsIds, face6PIds);
+		bool validMesh=1;
+
+		MeshType::PointType vp0, vp1, vp2, vp3;
+		MeshType::PointType p0, p1, p2, p3;
+		if (face1 && face2)  //{{0,1,2,3},{4,5,6,7}}
+		{
+			vp0 = ave(points->GetPoint(0), points->GetPoint(4));
+			vp1 = ave(points->GetPoint(1), points->GetPoint(5));
+			vp2 = ave(points->GetPoint(2), points->GetPoint(6));
+			vp3 = ave(points->GetPoint(3), points->GetPoint(7));
+		}
+		else if (face3 && face4)  //{{0,1,5,4},{3,2,6,7}}
+		{
+			vp0 = ave(points->GetPoint(0), points->GetPoint(3));
+			vp1 = ave(points->GetPoint(1), points->GetPoint(2));
+			vp2 = ave(points->GetPoint(5), points->GetPoint(6));
+			vp3 = ave(points->GetPoint(4), points->GetPoint(7));
+		}
+		else if (face5 && face6)  //{{0,3,7,4},{1,5,6,2}}
+		{
+			vp0 = ave(points->GetPoint(0), points->GetPoint(1));
+			vp1 = ave(points->GetPoint(3), points->GetPoint(2));
+			vp2 = ave(points->GetPoint(5), points->GetPoint(4));
+			vp3 = ave(points->GetPoint(6), points->GetPoint(7));
+		}
+		else
+		{
+			validMesh = 0;
+			std::cout << "Invalid input hexahedral mesh!" << std::endl;
+		}
+		//take care of itk vs. vtk difference
+		if (validMesh)
+		{
+		p0[0] = -vp0[0];
+		p0[1] = -vp0[1];
+		p0[2] =  vp0[2];
+		p1[0] = -vp1[0];
+		p1[1] = -vp1[1];
+		p1[2] =  vp1[2];
+		p2[0] = -vp2[0];
+		p2[1] = -vp2[1];
+		p2[2] =  vp2[2];
+		p3[0] = -vp3[0];
+		p3[1] = -vp3[1];
+		p3[2] =  vp3[2];
+		//insert points and cells in the new mesh
+		//std::cout << p0[0] << " " << p0[1] << " "<< p0[2] << std::endl;
+		//std::cout << p1[0] << " " << p1[1] << " "<< p1[2] << std::endl;
+		//std::cout << p2[0] << " " << p2[1] << " "<< p2[2] << std::endl;
+		//std::cout << p3[0] << " " << p3[1] << " "<< p3[2] << std::endl;
+		midSurface->AddQuadrilateral (midSurface->AddPoint(p1) , midSurface->AddPoint(p0),midSurface->AddPoint(p2), midSurface->AddPoint(p3));
+		//std::cout << midSurface->GetOutput()->GetNumberOfCells() << std::endl;
+		}
+	}
+
+	CopyFieldType copyfield ={0,0,0,0,0,0};
+	WriteVTKfile(midSurface->GetOutput(), "/fs/corpus1/mahnaz/surface.vtk", copyfield);
+
+    //midSurface->Print(std::cout);
+    midSurface->GetOutput()->Print(std::cout);
+	reader->Delete();
+
 
 	//Trajectories = ReadVTKfile(trajectoriesFilename.c_str());
 
