@@ -37,6 +37,7 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 add_library(ClusteringLib EMClusteringIO.cxx Registration.cxx myMaths.cxx EMCore.cxx MeshOperations.cxx Quantification.cxx)
 #set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
+target_link_libraries(ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
 
 set (CLP_LIST EMClustering EMCMedialSheet)
 
@@ -45,7 +46,7 @@ set ( ${CLP}_SOURCE ${CLP}.cxx)
 GenerateCLP(${CLP}.cxx ${CLP}.xml)
 
 add_executable(${CLP} ${CLP}.cxx)
-target_link_libraries( ${CLP} ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms ITKBasicFilters)
+target_link_libraries( ${CLP} ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
   
 slicer3_set_plugins_output_path(${CLP})
 endforeach(CLP)
