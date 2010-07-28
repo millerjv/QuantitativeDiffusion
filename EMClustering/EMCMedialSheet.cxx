@@ -143,7 +143,9 @@ int main(int argc, char* argv[])
 	typedef itk::AutomaticTopologyMeshSource< MeshType > MeshSourceType;
 	MeshSourceType::Pointer midSurface = MeshSourceType::New();
 
-	std::string filename ="/fs/corpus1/mahnaz/vtkMRMLFiniteElementMeshNode1.vtk";
+	//std::string filename ="/fs/corpus1/mahnaz/vtkMRMLFiniteElementMeshNode1.vtk";
+	std::string filename ="/fs/corpus1/mahnaz/cc.vtk";
+
 
     vtkUnstructuredGridReader *reader = vtkUnstructuredGridReader::New();
     reader->SetFileName( filename.c_str() );
@@ -152,7 +154,7 @@ int main(int argc, char* argv[])
 	vtkUnstructuredGrid* hexahedralGrid = reader->GetOutput();
 	vtkIdType NCells = hexahedralGrid->GetNumberOfCells();
 	hexahedralGrid->BuildLinks();
-	vtkCellLinks* cellLinks = hexaheCopyFieldType copyFielddralGrid->GetCellLinks();
+	vtkCellLinks* cellLinks = hexahedralGrid->GetCellLinks();
 
 	vtkIdType NPoints = hexahedralGrid->GetNumberOfPoints();
 	std::vector <std::vector<int> > linkLists;
