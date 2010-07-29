@@ -19,6 +19,7 @@
 #include <vtkStringArray.h>
 #include <vtkLongArray.h>
 
+void WriteVTKSurfacefile(MeshType*, std::string, CopyFieldType);
 
 void WriteVTKfile(MeshType*, std::string, CopyFieldType);
 

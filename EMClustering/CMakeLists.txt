@@ -39,7 +39,7 @@ add_library(ClusteringLib EMClusteringIO.cxx Registration.cxx myMaths.cxx EMCore
 #set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
 target_link_libraries(ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
 
-set (CLP_LIST EMClustering EMCMedialSheet)
+set (CLP_LIST EMClustering EMMedialSheetExtract EMClustering2010)
 
 foreach(CLP ${CLP_LIST})
 set ( ${CLP}_SOURCE ${CLP}.cxx)

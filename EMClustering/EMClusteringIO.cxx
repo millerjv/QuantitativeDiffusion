@@ -1,7 +1,7 @@
 
 #include <EMClusteringIO.h>
 
-vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
+vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField, int isSurface=0)
 {
   vtkPolyData* polydata = vtkPolyData::New();
   //CopyItkMesh2VtkPolyData(mesh, polydata, copyField);
@@ -93,27 +93,29 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
     for (unsigned int i=0; i < mesh->GetNumberOfCells(); ++i)
     {
       mesh->GetCell(i, acell);
-      polylines->InsertNextCell(acell->GetNumberOfPoints());
-      PolylineType::PointIdIterator pit = acell->PointIdsBegin();
-      for (unsigned int j=0; j < acell->GetNumberOfPoints(); ++j)
+      if ((isSurface && acell->GetNumberOfPoints()>2) || (isSurface==0))
       {
-        polylines->InsertCellPoint(*pit);
-        ++pit;
-      }
+    	  polylines->InsertNextCell(acell->GetNumberOfPoints());
+    	  PolylineType::PointIdIterator pit = acell->PointIdsBegin();
+    	  for (unsigned int j=0; j < acell->GetNumberOfPoints(); ++j)
+    	  {
+    		  polylines->InsertCellPoint(*pit);
+    		  ++pit;
+    	  }
 
-      mesh->GetCellData(i, &cellvalue);
-      clusterScalars->SetValue(i,cellvalue.ClusterLabel);
-      std::string filename = itksys::SystemTools::GetFilenameName(cellvalue.CaseName);
-      std::string subfilename = filename.substr(0,13);
-      //std::cout << subfilename.c_str()<< std::endl;
-      subjectName->SetValue(i, subfilename.c_str()); //cellvalue.CaseName
-      clusterMembershipProbs->SetNumberOfComponents(cellvalue.membershipProbability.Size());
-      for (unsigned int p=0; p< cellvalue.membershipProbability.Size(); p++)
-      {
-        clusterMembershipProbs->InsertComponent(i,p,cellvalue.membershipProbability(p));
+    	  mesh->GetCellData(i, &cellvalue);
+    	  clusterScalars->SetValue(i,cellvalue.ClusterLabel);
+    	  std::string filename = itksys::SystemTools::GetFilenameName(cellvalue.CaseName);
+    	  std::string subfilename = filename.substr(0,13);
+    	  //std::cout << subfilename.c_str()<< std::endl;
+    	  subjectName->SetValue(i, subfilename.c_str()); //cellvalue.CaseName
+    	  clusterMembershipProbs->SetNumberOfComponents(cellvalue.membershipProbability.Size());
+    	  for (unsigned int p=0; p< cellvalue.membershipProbability.Size(); p++)
+    	  {
+    		  clusterMembershipProbs->InsertComponent(i,p,cellvalue.membershipProbability(p));
+    	  }
       }
     }
-
     //COPY CELL DATA
     if (copyField.ClusterLabel)
     {
@@ -125,7 +127,15 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField)
     {
       polydata->GetCellData()->AddArray(subjectName);
     }
-    polydata->SetLines( polylines );
+    if (isSurface)
+    {
+    	polydata->SetPolys( polylines );
+    }
+    else
+    {
+    	polydata->SetLines( polylines );
+
+    }
 
     polylines->Delete();
     vpoints->Delete();
@@ -196,7 +206,22 @@ void WriteVTKfile(MeshType* mesh, std::string filename, CopyFieldType copyField)
 
 {
   vtkPolyData* polydata;
-  polydata = itk2vtkPolydata(mesh, copyField);
+  polydata = itk2vtkPolydata(mesh, copyField, 0);
+
+  vtkXMLPolyDataWriter *MyPolyDataWriter = vtkXMLPolyDataWriter::New();
+  MyPolyDataWriter->SetFileName( filename.c_str() );
+  MyPolyDataWriter->SetInput(polydata);
+  std::cout<< "Writing out "<< filename.c_str() <<"..."<<std::endl;
+  MyPolyDataWriter->Update();
+  MyPolyDataWriter->Delete();
+  polydata->Delete();
+}
+
+void WriteVTKSurfacefile(MeshType* mesh, std::string filename, CopyFieldType copyField)
+
+{
+  vtkPolyData* polydata;
+  polydata = itk2vtkPolydata(mesh, copyField, 1);
 
   vtkXMLPolyDataWriter *MyPolyDataWriter = vtkXMLPolyDataWriter::New();
   MyPolyDataWriter->SetFileName( filename.c_str() );
