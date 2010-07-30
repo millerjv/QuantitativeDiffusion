@@ -9,6 +9,11 @@
 #include <itkLinearInterpolateImageFunction.h>
 
 Array2DType ComputeDissimilarity(MeshType*, MeshType*, ImageType*, VariableType, VariableType, VariableType);
+Array2DType ComputeDissimilaritySurfaces(MeshType*, CenterType, ImageType*, VariableType, VariableType, VariableType);
+
+MeshType::Pointer UpdateCenters(MeshType*, MeshType*, const Array2DType &, VariableType);
+void UpdateSurfaces(const MeshType*, CenterType, const Array2DType &, VariableType);
+
 MeshType::Pointer RefineData(const MeshType*, Array2DType &, Array2DType &, Array2DType &, ArrayType, bool);
 MeshType::Pointer SmoothMesh(MeshType*, VariableType, bool);
 ArrayType diffMeshes(const MeshType*, const MeshType*);
@@ -20,5 +25,6 @@ std::vector<std::string> getClusterSubjectNames(MeshType*);
 VariableType getSampleSpacing(const MeshType*);
 ImageType::Pointer getSubSpace(const MeshType*, VariableType);
 void  AddPointScalarToACell(MeshType*, MeshType::CellIdentifier, ArrayType);
+
 
 #endif // #ifndef

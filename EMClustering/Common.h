@@ -13,6 +13,10 @@
 #include "itkOrientedImage.h"
 #include "itkImage.h"
 
+#include "itkQuadEdgeMesh.h"
+#include "itkQuadEdgeMeshTraits.h"
+#include "itkQuadEdgeMeshPolygonCell.h"
+
 const unsigned int PointDimension = 3;
 const unsigned int MaxTopologicalDimension = 1;
 typedef double     CoordinateType;
@@ -30,11 +34,20 @@ itk::Point<CoordinateType, PointDimension> AtlasPosition;
 itk::Array<long int>                       Correspondence;
 }PixelType;
 
+typedef struct{
+itk::FixedArray<double, PointDimension >   Orientation;
+}QEPixelType;
+
+
 typedef struct{std::string   CaseName;
 int                          ClusterLabel;
 ArrayType                    membershipProbability;
 ArrayType                    atlasPriors;
 }CellDataType;
+
+typedef struct{
+int                          ClusterLabel;
+}QECellDataType;
 
 typedef struct{bool   FA;
 bool                  EigenValues;
@@ -56,5 +69,12 @@ typedef CellType::CellAutoPointer                           CellAutoPointer;
 typedef itk::DiffusionTensor3D< CoordinateType >            TensorPixelType;
 typedef TensorPixelType::RealValueType                      RealValueType;
 typedef TensorPixelType::EigenValuesArrayType               EigenValuesArrayType;
+
+typedef itk::QuadEdgeMeshTraits<
+QEPixelType, PointDimension, QEPixelType, QECellDataType,
+CoordinateType, InterpolationWeightType >     QuadEdgeMeshTraits;
+
+typedef itk::QuadEdgeMesh< QEPixelType, PointDimension, QuadEdgeMeshTraits>  QuadEdgeMeshType;
+typedef std::vector<QuadEdgeMeshType::Pointer>              CenterType;
 
 #endif // #ifndef
