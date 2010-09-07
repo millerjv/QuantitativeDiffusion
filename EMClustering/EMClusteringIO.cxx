@@ -19,6 +19,11 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField, int isSurf
     tensors->SetNumberOfComponents(9);
     tensors->SetNumberOfTuples(numPoints);
 
+    vtkDoubleArray* orientations = vtkDoubleArray::New();
+    orientations->SetNumberOfComponents(3);
+    orientations->SetNumberOfTuples(numPoints);
+    orientations->SetName("Orientation");
+
     vtkLongArray* correspondences = vtkLongArray::New();
     correspondences->SetNumberOfComponents(1);
     correspondences->SetNumberOfTuples(numPoints);
@@ -65,6 +70,10 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField, int isSurf
       {
     	  correspondences->InsertTuple1(idx,MyCorrespondences[0]);
       }
+      if (copyField.Orientation)
+      {
+    	  orientations->SetTuple3(idx,pointvalue.Orientation[0],pointvalue.Orientation[1],pointvalue.Orientation[2]);
+      }
     }
 
     polydata->SetPoints(vpoints);
@@ -76,14 +85,21 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField, int isSurf
       polydata->GetPointData()->SetTensors(tensors);
     }
 
+    if (copyField.Correspondences)
+    {
+      polydata->GetPointData()->SetScalars(correspondences);
+    }
+
+
     if (copyField.FA)
     {
       polydata->GetPointData()->SetScalars(scalars);
     }
 
-    if (copyField.Correspondences)
+
+    if (copyField.Orientation)
     {
-      polydata->GetPointData()->SetScalars(correspondences);
+      polydata->GetPointData()->SetVectors(orientations);
     }
 
 
@@ -145,9 +161,118 @@ vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField, int isSurf
     clusterMembershipProbs->Delete();
     subjectName->Delete();
     correspondences->Delete();
+    orientations->Delete();
   //}
   return polydata;
 }
+
+
+vtkPolyData* itkQEMesh2vtkPolydata(QuadEdgeMeshType* mesh, CopyFieldType copyField, int isSurface=1)
+{
+  vtkPolyData* polydata = vtkPolyData::New();
+  //CopyItkMesh2VtkPolyData(mesh, polydata, copyField);
+  //void CopyItkMesh2VtkPolyData(MeshType* mesh, vtkPolyData* polydata, CopyFieldType copyField)
+
+  // Convert the itk mesh to vtk polydata:
+  //{
+    unsigned int numPoints = mesh->GetNumberOfPoints();
+
+    vtkPoints* vpoints = vtkPoints::New();
+    vpoints->SetNumberOfPoints(numPoints);
+
+    vtkDoubleArray* orientations = vtkDoubleArray::New();
+    orientations->SetNumberOfComponents(3);
+    orientations->SetNumberOfTuples(numPoints);
+    orientations->SetName("Orientation");
+
+    vtkDoubleArray* scalars = vtkDoubleArray::New();
+    scalars->SetNumberOfTuples(numPoints);
+    scalars->SetName("FA");
+
+    double MyFA;
+    QuadEdgeMeshType::PixelType pointvalue;
+    QuadEdgeMeshType::PointsContainer::Pointer points = mesh->GetPoints();
+    for(QuadEdgeMeshType::PointsContainer::Iterator i = points->Begin(); i !=
+      points->End(); ++i)
+    {
+      int idx = i->Index();
+      QuadEdgeMeshType::PointType ip = i->Value();
+      //take care of orientation difference between itk and vtk:
+      ip[0] = -ip[0];
+      ip[1] = -ip[1];
+
+      vpoints->SetPoint(idx, ip[0], ip[1], ip[2]);
+      mesh->GetPointData(idx, &pointvalue);
+      MyFA = pointvalue.FA;
+      scalars->InsertTuple1(idx, MyFA);
+      if (copyField.Orientation)
+      {
+    	  orientations->SetTuple3(idx,pointvalue.Orientation[0],pointvalue.Orientation[1],pointvalue.Orientation[2]);
+      }
+    }
+
+    polydata->SetPoints(vpoints);
+
+    //COPY POINT DATA
+
+    if (copyField.FA)
+    {
+      polydata->GetPointData()->SetScalars(scalars);
+    }
+    if (copyField.Orientation)
+    {
+      polydata->GetPointData()->SetVectors(orientations);
+    }
+
+    //Copy Cells:
+
+    vtkCellArray *polylines = vtkCellArray::New();
+
+    typedef  QuadEdgeMeshType::CellsContainer         CellsContainer;
+   	typedef  CellsContainer::Pointer                  CellsContainerPointer;
+   	typedef  CellsContainer::ConstPointer             CellsContainerConstPointer;
+   	typedef  CellsContainer::Iterator                 CellsContainerIterator;
+   	typedef  CellsContainer::ConstIterator            CellsContainerConstIterator;
+
+   	CellsContainerConstPointer cells = mesh->GetCells();
+   	CellsContainerConstIterator it = cells->Begin();
+
+   	for (unsigned int i=0; i < mesh->GetNumberOfCells(); ++i)
+    {
+    	QECellType* acell =it->Value();
+      if (acell->GetType()>1)
+
+       {
+    	  polylines->InsertNextCell(acell->GetNumberOfPoints());
+    	  PolylineType::PointIdIterator pit = acell->PointIdsBegin();
+    	  for (unsigned int j=0; j < acell->GetNumberOfPoints(); ++j)
+    	  {
+    		  polylines->InsertCellPoint(*pit);
+    		  ++pit;
+    	  }
+      }
+      it++;
+    }
+
+    if (isSurface)
+    {
+    	polydata->SetPolys( polylines );
+    }
+    else
+    {
+    	polydata->SetLines( polylines );
+
+    }
+
+    polylines->Delete();
+    vpoints->Delete();
+    scalars->Delete();
+    orientations->Delete();
+
+  return polydata;
+}
+
+
 
 MeshType::Pointer vtk2itkMesh(vtkPolyData* polydata)
 {
@@ -156,8 +281,10 @@ MeshType::Pointer vtk2itkMesh(vtkPolyData* polydata)
   vtkPoints* vpoints = polydata->GetPoints();
     int numPoints = polydata->GetNumberOfPoints();
     vtkCellArray *polylines = polydata->GetLines();
+    //vtkCellArray *polygons = polydata->GetPolys();
 
     vtkDataArray *tensors = polydata->GetPointData()->GetTensors();
+    vtkDataArray *vectors = polydata->GetPointData()->GetVectors("Orientation");
     vtkDataArray *clusterScalars = polydata->GetCellData()->GetScalars("ClusterId");
 
     MeshType::PixelType pointvalue;
@@ -169,10 +296,17 @@ MeshType::Pointer vtk2itkMesh(vtkPolyData* polydata)
       vpoint[1]= - vpoint[1];
 
       mesh->SetPoint(i, vpoint);
-      if (tensors)
+      if (tensors || vectors)
       {
-        pointvalue.Tensor = tensors->GetTuple9(i);
-        mesh->SetPointData(i, pointvalue);
+    	  if (tensors)
+    	  {
+    		  pointvalue.Tensor = tensors->GetTuple9(i);
+    	  }
+    	  if (vectors)
+		  {
+			  pointvalue.Orientation = vectors->GetTuple3(i);
+		  }
+    	  mesh->SetPointData(i, pointvalue);
       }
     }
 
@@ -202,6 +336,60 @@ MeshType::Pointer vtk2itkMesh(vtkPolyData* polydata)
   return mesh;
 }
 
+QuadEdgeMeshType::Pointer vtk2itkQEMesh(vtkPolyData* polydata)
+{
+    QuadEdgeMeshType::Pointer mesh = QuadEdgeMeshType::New();
+
+    vtkPoints* vpoints = polydata->GetPoints();
+    int numPoints = polydata->GetNumberOfPoints();
+    vtkCellArray *polygons = polydata->GetPolys();
+    vtkDataArray *vectors = polydata->GetPointData()->GetVectors();
+
+    QuadEdgeMeshType::PixelType pointvalue;
+    for(int i=0; i<numPoints; ++i)
+    {
+      // take care of the orientation difference between itk and vtk
+      QuadEdgeMeshType::PointType vpoint = vpoints->GetPoint(i);
+      vpoint[0]= - vpoint[0];
+      vpoint[1]= - vpoint[1];
+
+      mesh->SetPoint(i, vpoint);
+      if (vectors)
+      {
+    	  pointvalue.Orientation = vectors->GetTuple3(i);
+		  mesh->SetPointData(i, pointvalue);
+      }
+    }
+
+    QECellAutoPointer acell;
+
+    vtkIdType npts;
+    vtkIdType *pts;
+    polygons->InitTraversal();
+    for (int j=0; j < polydata->GetNumberOfPolys(); ++j)
+    {
+      polygons->GetNextCell(npts, pts);
+
+      if (npts==3) //triangle
+      {
+    	  acell.TakeOwnership( new TriangleCellType );
+      }
+      else if (npts>3)
+      {
+    	  acell.TakeOwnership( new PolygonType );
+      }
+      for (int jj=0; jj < npts; ++jj)
+      {
+        acell->SetPointId(jj, (QECellType::PointIdentifier) pts[jj]);
+      }
+      mesh->SetCell(j, acell);
+    }
+
+  return mesh;
+}
+
+
+
 void WriteVTKfile(MeshType* mesh, std::string filename, CopyFieldType copyField)
 
 {
@@ -222,6 +410,22 @@ void WriteVTKSurfacefile(MeshType* mesh, std::string filename, CopyFieldType cop
 {
   vtkPolyData* polydata;
   polydata = itk2vtkPolydata(mesh, copyField, 1);
+
+  vtkXMLPolyDataWriter *MyPolyDataWriter = vtkXMLPolyDataWriter::New();
+  MyPolyDataWriter->SetFileName( filename.c_str() );
+  MyPolyDataWriter->SetInput(polydata);
+  std::cout<< "Writing out "<< filename.c_str() <<"..."<<std::endl;
+  MyPolyDataWriter->Update();
+  MyPolyDataWriter->Delete();
+  polydata->Delete();
+}
+
+void WriteVTKSurfacefile(QuadEdgeMeshType* mesh, std::string filename, CopyFieldType copyField)
+
+{
+  vtkPolyData* polydata;
+  polydata = itkQEMesh2vtkPolydata(mesh, copyField, 1);
+  //polydata->Print(std::cout);
 
   vtkXMLPolyDataWriter *MyPolyDataWriter = vtkXMLPolyDataWriter::New();
   MyPolyDataWriter->SetFileName( filename.c_str() );
@@ -290,6 +494,39 @@ MeshType::Pointer ReadVTKfile(std::string filename)
   	  MyPolyDataReader->Update();
   	  vtkPolyData* rpolydata = MyPolyDataReader->GetOutput();
   	  mesh = vtk2itkMesh(rpolydata);
+      MyPolyDataReader->Delete();
+    }
+  else
+  {
+	std::cerr<< extension << " is not a valid extension!" <<std::endl;
+  }
+  return mesh;
+
+}
+
+QuadEdgeMeshType::Pointer ReadVTKSurfacefile(std::string filename)
+{
+  QuadEdgeMeshType::Pointer     mesh;
+  std::string extension = itksys::SystemTools::GetFilenameExtension(filename);
+  if (extension.compare(".VTP")==0 || extension.compare(".vtp")==0)
+  {
+	  vtkXMLPolyDataReader *MyPolyDataReader = vtkXMLPolyDataReader::New();
+	  MyPolyDataReader->SetFileName( filename.c_str() );
+	  std::cout<< "Reading "<<filename.c_str()<< "..."<<std::endl;
+	  MyPolyDataReader->Update();
+	  vtkPolyData* rpolydata = MyPolyDataReader->GetOutput();
+	  //rpolydata->Print(std::cout);
+      mesh = vtk2itkQEMesh(rpolydata);
+      MyPolyDataReader->Delete();
+  }
+  else if (extension.compare(".VTK")==0 || extension.compare(".vtk")==0)
+    {
+  	  vtkPolyDataReader *MyPolyDataReader = vtkPolyDataReader::New();
+  	  MyPolyDataReader->SetFileName( filename.c_str() );
+  	  std::cout<< "Reading "<<filename.c_str()<< "..."<<std::endl;
+  	  MyPolyDataReader->Update();
+  	  vtkPolyData* rpolydata = MyPolyDataReader->GetOutput();
+  	  mesh = vtk2itkQEMesh(rpolydata);
       MyPolyDataReader->Delete();
     }
   else
@@ -376,4 +613,92 @@ void writeMCSVfile(std::string fileName, const ArrayType &y, const ArrayType &ye
    }
   }
   myfile.close();
+}
+
+
+SurfaceCenterType readSurfaceCenterFiles(const std::vector<std::string> centersFilename)
+{
+	SurfaceCenterType centers;
+	unsigned int numberOfFiles = centersFilename.size();
+	for (unsigned int f=0; f<numberOfFiles; f++)
+	{
+		//ToDo: determine the type of center
+		centers.push_back(ReadVTKSurfacefile(centersFilename.at(f)));
+
+	}
+	return centers;
+}
+
+CenterType readCenterFiles(const std::vector<std::string> centersFilename, unsigned int &ncells)
+{
+	CenterType centers;
+	unsigned int numberOfFiles = centersFilename.size();
+	if (numberOfFiles ==1)
+	{
+		MeshType::Pointer centersInOneFile=ReadVTKfile(centersFilename.at(0));
+		ncells = centersInOneFile->GetNumberOfCells();
+		for (unsigned int c=0; c<ncells; c++)
+		{
+			std::vector<unsigned long int> t;
+			t.clear();
+			t.push_back(c);
+			centers.push_back(getTrajectories(centersInOneFile,t));
+		}
+	}
+	else
+	{
+		ncells =1;
+		for (unsigned int f=0; f<numberOfFiles; f++)
+		{
+			centers.push_back(ReadVTKfile(centersFilename.at(f)));
+		}
+	}
+	return centers;
+}
+
+void WriteVTKfile(CenterType meshes, const std::vector<std::string> filenames, CopyFieldType copyfield)
+{
+	unsigned int numberOfFiles = filenames.size();
+	if (numberOfFiles>1)
+	{
+		for (unsigned int f=0; f<filenames.size(); f++)
+		{
+			WriteVTKfile(meshes.at(f), filenames.at(f),copyfield);
+
+		}
+	}
+	else
+	{
+		MeshType::Pointer allMeshes = MeshType::New();
+		for (unsigned int c=0; c<meshes.size(); c++)
+		{
+			addMesh(allMeshes, meshes.at(c),"");
+		}
+		WriteVTKfile(allMeshes, filenames.at(0),copyfield);
+
+	}
+}
+
+std::vector<std::string> generateFilenames(std::vector<std::string> filenames, unsigned int nc = 1)
+{
+	std::vector<std::string> outFilenames;
+	unsigned int numberOfFiles = filenames.size();
+	if (nc>1 && numberOfFiles==1)
+	{
+		std::string fn = itksys::SystemTools::GetFilenameWithoutExtension(filenames.at(0));
+		for (unsigned int f=0; f<nc; f++)
+		{
+			std::stringstream cellId;
+			cellId<<f+1;
+			std::string cfn = fn+"_"+cellId.str();
+			outFilenames.push_back(cfn);
+		}
+	}
+	else
+		for (unsigned int f=0; f<numberOfFiles; f++)
+		{
+			std::string fn = itksys::SystemTools::GetFilenameWithoutExtension(filenames.at(f));
+			outFilenames.push_back(fn);
+		}
+	return outFilenames;
 }

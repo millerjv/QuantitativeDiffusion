@@ -1,10 +1,10 @@
 
 #include <myMaths.h>
-#include <itkThinPlateSplineKernelTransform.h>
 
 ArrayType meanMat(const Array2DType &X, int nanVal=0)
 //take the column-wise mean of the matrix X, ignoring the zero elements.
 {
+  std::vector<int> nanValCols;
   ArrayType mX;
   mX.SetSize(X.cols());
   ArrayType aCol;
@@ -38,18 +38,19 @@ ArrayType meanMat(const Array2DType &X, int nanVal=0)
       {
         //
         mX(c)=0;
-        std::cout << "NaN column at " << c << "!" <<std::endl;
+        nanValCols.push_back(c);
       }
-    }
+     }
 
   }
-
+  std::cout << "NaN colums: "<< nanValCols.size()<<std::endl;
   return mX;
 }
 
 ArrayType stdMat(const Array2DType &X, int nanVal=0)
 //take the column-wise std of the matrix X, ignoring the nonVal elements.
 {
+  std::vector<int> nanValCols;
   ArrayType mX;
   mX.SetSize(X.cols());
   ArrayType aCol;
@@ -96,19 +97,19 @@ ArrayType stdMat(const Array2DType &X, int nanVal=0)
       {
         //
         mX(c)=0;
-        std::cout << "NaN column at " << c << "!" <<std::endl;
+        nanValCols.push_back(c);
+        }
       }
-    }
 
   }
-
+  std::cout << "NaN colums: "<< nanValCols.size()<<std::endl;
   return mX;
 }
-
 
 ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
 //take the column-wise 'weighted mean' of the matrix X, ignoring the zero elements.
 {
+  std::vector<int> nanValCols;
   X = element_product(X, P);   //x = x.p(x)
   ArrayType mX;
   mX.SetSize(X.cols());
@@ -143,13 +144,13 @@ ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
       else
       {
         mX(c)=0;
-        std::cout << "NaN column at " << c << "!" <<std::endl;
+        nanValCols.push_back(c);
       }
     }
 
   }
-
-return mX;
+  std::cout << "NaN colums: "<< nanValCols.size()<<std::endl;
+  return mX;
 }
 VariableType Gamma(VariableType x, VariableType alpha, VariableType beta)
 {

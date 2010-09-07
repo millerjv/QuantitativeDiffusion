@@ -28,5 +28,6 @@ typedef itk::LinearInterpolateImageFunction<ImageType,CoordinateType>  Interpola
 
 TransformType::Pointer doAffineRegistration(ImageType* , ImageType* , std::string);
 MeshType::Pointer applyTransform(MeshType* , TransformType* , std::vector<unsigned long int> );
+CenterType applyTransform(CenterType, TransformType*);
 
 #endif // #ifndef

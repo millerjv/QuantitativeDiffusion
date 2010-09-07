@@ -4,6 +4,7 @@
 
 #include "Common.h"
 #include "vnl/vnl_gamma.h"
+#include <itkThinPlateSplineKernelTransform.h>
 
 typedef itk::Array2D<CoordinateType>                        CurveType;
 typedef itk::Array<CoordinateType>                          CurvePointType;

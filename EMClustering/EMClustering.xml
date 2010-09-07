@@ -13,8 +13,8 @@
   <contributor>This module was developed by Mahnaz Maddah with help from Jim Miller, and was supported by NAC.</contributor>
 
   <parameters>
-    <label>IO</label>
-    <description>Parameters specifying data input and output</description>
+    <label>IO - Common </label>
+    <description>Parameters specifying data input and output </description>
 
     <geometry  type="fiberbundle">
       <name>outputClustersFilename</name>
@@ -23,6 +23,59 @@
       <index>0</index>
       <description>Output of clustering which is a set of labeled trajectories</description>
     </geometry>
+    
+    <geometry type="fiberbundle" multiple="true">
+      <name>centersFilename</name>
+      <label>Initial Centers</label>
+      <channel>input</channel>
+      <longflag>initial_centers</longflag>
+      <description>Initial cluster centerlines(either in the atlas' or subject's space </description>
+    </geometry>
+    
+     <geometry  type="fiberbundle" multiple="true">
+      <name>outputCentersFilename</name>
+      <label>Output Centers</label>
+      <channel>output</channel>
+      <longflag>output_centers</longflag>
+      <description>Cluster centers (only first center for now)</description>
+      <default>centers.vtp</default>
+    </geometry>
+
+    <directory>
+      <name>OutputDirectory</name>
+      <label>Output Directory</label>
+      <channel>output</channel>
+      <longflag>output_directory</longflag>
+      <description>Directory in which to save features along the fibers</description>
+      <default>.</default>
+    </directory>
+    
+    <boolean>
+      <name>analysis</name>
+      <label>Perform Quantitative Analysis</label>
+      <longflag>analysis</longflag>
+      <description>Perform tract-oriented quantitative analysis?</description>
+    </boolean> 
+    
+  </parameters>
+  
+  <parameters>
+    <label>IO - Single Subject Study </label>
+    <description>Parameters specifying data input and output for single subject study </description>
+    
+    <geometry type="fiberbundle">
+      <name>trajectoriesFilename</name>
+      <label>Trajectories</label>
+      <channel>input</channel>
+      <longflag>trajectories</longflag>
+      <description>Input trajectories</description>
+    </geometry>   
+ 
+</parameters>   
+
+<parameters>
+    <label>IO - Multipe Subject Study </label>
+    <description>Parameters specifying data input and output for a population study </description>
     
     <boolean>
       <name>population</name>
@@ -34,108 +87,38 @@
     <directory>
       <name>TractsDir</name>
       <longflag>population_directory</longflag>
-      <label>Tract Files</label>
+      <label>Population Directory</label>
       <description>Directory which includes a collection of vtk/vtp files of tracts to be studied </description>
       <default>/fs/corpus1/asset24_cluster_pilot/tracts/ped-icap_l</default>
     </directory>
+</parameters>
+<parameters>
+    <label>IO - Atlas-based Seeding </label>
+    <description>Parameters specifying data input for using an atlas for initial centers </description>
     
-    <geometry type="fiberbundle">
-      <name>trajectoriesFilename</name>
-      <label>Trajectories</label>
-      <channel>input</channel>
-      <longflag>trajectories</longflag>
-      <description>Input trajectories</description>
-    </geometry>
-    
-    <boolean>
+     <boolean>
       <name>use_atlas</name>
       <label>Use an atlas?</label>
       <description>Should an atlas be used in clustering</description>
       <longflag>use_atlas</longflag>
     </boolean> 
-
-    <directory>
-      <name>atlas_directory</name>
-      <flag>a</flag>
-      <longflag>atlas_directory</longflag>
-      <label>Atlas Directory</label>
-      <description>Use an atlas to seed the clustering. Atlases are specified as a directory containing the atlas description: an FA map called atlasFAMap.nhdr and set of initial centers representing the structures to cluster call atlasCenters.vtp.</description>
-      <default>../Clustering/Atlas</default>
-    </directory>
     
     <image>
       <name>subjectFAFilename</name>
-      <label>Subject's FA Volume</label>
+      <label>Subject's Scalar Volume</label>
       <channel>input</channel>
       <longflag>fa_volume</longflag>
       <description>Subject's FA volume needs to be given if using an atlas.</description>
     </image>
 
-    <boolean>
-      <name>genu</name>
-      <label>genu</label>
-      <longflag>genu</longflag>
-      <description>Genu bundle to be clustered?</description>
-      <default>true</default>
-    </boolean> 
-
-    <boolean>
-      <name>splenium</name>
-      <label>splenium</label>
-      <longflag>splenium</longflag>
-      <description>Splenium bundle to be clustered?</description>
-      <default>true</default>
-    </boolean> 
-
-    <boolean>
-      <name>cingulumR</name>
-      <label>cingulum(R)</label>
-      <longflag>cingulumR</longflag>
-      <description>Right cingulum bundle to be clustered?</description>
-      <default>false</default>
-    </boolean> 
-
-    <boolean>
-      <name>cingulumL</name>
-      <label>cingulum(L)</label>
-      <longflag>cingulumL</longflag>
-      <description>Left cingulum bundle to be clustered?</description>
-      <default>false</default>
-    </boolean> 
-
-    <geometry type="fiberbundle">
-      <name>centersFilename</name>
-      <label>Initial Centers</label>
+    <image>
+      <name>atlasFAFilename</name>
+      <label>Atlas' Scalar Volume</label>
       <channel>input</channel>
-      <longflag>initialcenters</longflag>
-      <description>Initial cluster centerlines. Leave it empty if you are using an atlas. </description>
-    </geometry>
-
-    <!--<point multiple="true" coordinateSystem="ras">
-      <name>seeds</name>
-      <label>Fiducials to Pick Initial Centers</label>
-      <channel>input</channel>
-      <longflag>fiducials</longflag>
-      <description>Input fiducials for which the closest trajectories in the input are found and serve as initial cluster centers. If initial centers are provided above, the fiducial list will be ignored. </description>
-    </point>
-
-    <geometry  type="fiberbundle">
-      <name>initCentersFilename</name>
-      <label>Output Initial Centers </label>
-      <channel>output</channel>
-      <longflag>outputInitCenters</longflag>
-      <description>Returns the initial cluster centers that have been specified by the fiducials </description>
-      <default>initialcenters.vtp</default>
-    </geometry>
-    -->
-    <geometry  type="fiberbundle">
-      <name>outputCentersFilename</name>
-      <label>Output Centers</label>
-      <channel>output</channel>
-      <longflag>output_centers</longflag>
-      <description>Cluster centers</description>
-      <default>centers.vtp</default>
-    </geometry>
+      <longflag>atlas_fa_volume</longflag>
+      <description>Atlas' FA volume needs to be given if using an atlas.</description>
+    </image>
+    
 <!--
     <measurement>
       <name>measurement1FileName</name>
@@ -147,23 +130,7 @@
     </measurement>
 -->
 
-    <boolean>
-      <name>analysis</name>
-      <label>Perform Quantitative Analysis</label>
-      <longflag>analysis</longflag>
-      <description>Perform tract-oriented quantitative analysis?</description>
-    </boolean> 
-
-  <directory>
-      <name>OutputDirectory</name>
-      <label>Output Directory</label>
-      <channel>output</channel>
-      <longflag>output_directory</longflag>
-      <description>Directory in which to save features along the fibers</description>
-      <default>.</default>
-    </directory>
- 
-  </parameters>
+   </parameters>
 
   <parameters>
     <label>Clustering parameters</label>
@@ -187,34 +154,22 @@
   <parameters advanced ="true">
     <label>Advanced parameters</label>
     <description>Advanced parameters to control clustering method</description>
-
-    <double-vector>
-      <name>spacing</name>
-      <label>Space resolution</label>
-      <flag>s</flag>
-      <longflag>resolution</longflag>
-      #<default>2.5,2.5,2.5</default>
-      <default>1.0,1.0,1.0</default>
-      <description>Space resolution for Distance Map calculation</description>
-    </double-vector>
-
     <integer>
       <name>maxNumberOfIterations</name>
       <label>Maximum Number of Iterations</label>
       <!-- <channel>input</channel> -->
-      <default>5</default>
+      <default>3</default>
       <flag>i</flag>
       <longflag>max_iterations</longflag>
       <description>Maximum number of EM iterations</description>
     </integer>
 
-    <geometry  type="fiberbundle">
+    <geometry  type="fiberbundle" multiple ="true">
       <name>transformedCentersFilename</name>
       <label>Transformed Initial Centers From The Atlas</label>
       <channel>output</channel>
       <longflag>transormed_initalcenters</longflag>
       <description>Returns the transforme initial cluster centers if using an atlas </description>
-      <default>transformedCenters.vtp</default>
     </geometry>
     
     <float>
@@ -233,10 +188,10 @@
     <float>
       <name>MaxDist</name>
       <label>Maximum Distance</label>
-      <default>20</default>
+      <default>10</default>
       <constraints>
         <minimum>5</minimum>
-        <maximum>50</maximum>
+        <maximum>20</maximum>
         <step>5</step>
       </constraints>
       <flag>d</flag>
@@ -246,3 +201,4 @@
   </parameters>
 </executable>
 
+ 

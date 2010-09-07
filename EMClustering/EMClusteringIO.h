@@ -18,16 +18,27 @@
 #include <vtkPointData.h>
 #include <vtkStringArray.h>
 #include <vtkLongArray.h>
-
-void WriteVTKSurfacefile(MeshType*, std::string, CopyFieldType);
-
-void WriteVTKfile(MeshType*, std::string, CopyFieldType);
+#include "MeshOperations.h"
 
 MeshType::Pointer ReadVTKfile(std::string);
+
+QuadEdgeMeshType::Pointer ReadVTKSurfacefile(std::string);
 
 MeshType::Pointer ReadVTKfiles(std::vector<std::string>);
 
 ImageType::Pointer ReadImageVolume(std::string);
+
+CenterType readCenterFiles(const std::vector<std::string>, unsigned int &);
+
+SurfaceCenterType readSurfaceCenterFiles(const std::vector<std::string>);
+
+void WriteVTKSurfacefile(MeshType*, std::string, CopyFieldType);
+
+void WriteVTKSurfacefile(QuadEdgeMeshType*, std::string, CopyFieldType);
+
+void WriteVTKfile(MeshType*, std::string, CopyFieldType);
+
+void WriteVTKfile(CenterType, const std::vector<std::string>, CopyFieldType);
 
 void WriteImageVolume(ImageType* , std::string);
 
@@ -35,4 +46,7 @@ void WriteCSVfile(std::string, const Array2DType &);
 
 void writeMCSVfile(std::string, const ArrayType, const ArrayType, const std::vector<std::string> & );
 
+std::vector<std::string> generateFilenames(std::vector<std::string>, unsigned int);
+
+void addMesh(MeshType*, MeshType*, const std::string);
 #endif // #ifndef

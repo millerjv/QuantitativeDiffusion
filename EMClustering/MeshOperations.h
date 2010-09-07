@@ -8,10 +8,11 @@
 #include <itkBoundingBox.h>
 #include <itkLinearInterpolateImageFunction.h>
 
-Array2DType ComputeDissimilarity(MeshType*, MeshType*, ImageType*, VariableType, VariableType, VariableType);
-MeshType::Pointer UpdateCenters(MeshType*, MeshType*, const Array2DType &, VariableType);
+Array2DType ComputeDissimilarity(MeshType*, CenterType, ImageType*, VariableType, bool);
+CenterType UpdateCenters(MeshType*, CenterType, const Array2DType &, VariableType);
 MeshType::Pointer RefineData(const MeshType*, Array2DType &, Array2DType &, Array2DType &, ArrayType, bool);
 MeshType::Pointer SmoothMesh(MeshType*, VariableType, bool);
+CenterType SmoothMeshes(CenterType, VariableType, bool);
 ArrayType diffMeshes(const MeshType*, const MeshType*);
 MeshType::Pointer getTrajectories(MeshType*, std::vector<unsigned long int>);
 MeshType::Pointer getCluster(MeshType*,int);
@@ -21,6 +22,6 @@ std::vector<std::string> getClusterSubjectNames(MeshType*);
 VariableType getSampleSpacing(const MeshType*);
 ImageType::Pointer getSubSpace(const MeshType*, VariableType);
 void  AddPointScalarToACell(MeshType*, MeshType::CellIdentifier, ArrayType);
-
-
+void AddOrientation(CenterType);
+void AddOrientation(MeshType*);
 #endif // #ifndef

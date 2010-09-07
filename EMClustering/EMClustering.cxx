@@ -16,19 +16,15 @@ int main(int argc, char* argv[])
 {
 	PARSE_ARGS;
 
-	MeshType::Pointer    Trajectories, Centers, atlasCenters;
-	MeshType::Pointer    oldCenters = MeshType::New();
-	ImageType::Pointer subSpace;
+	MeshType::Pointer    Trajectories;
+	CenterType           Centers;
+	ImageType::Pointer   subSpace;
 
-	//population=0;
-	//use_atlas = 0;
-	//analysis = 1;
-	//
 	bool debug = 0;
 	CopyFieldType copyField = {0,0,1,1,0,1};
+	unsigned int ncells; //number of cells in each mesh
 
 	// Get the input trajectories
-
 	std::vector<std::string> allfilenames;
 	if (population)
 	{
@@ -50,25 +46,23 @@ int main(int argc, char* argv[])
 		return -1;
 	}
 
-	// Get the intialcenter(s)
+	if (!centersFilename.empty())
+    {
+	   Centers = readCenterFiles(centersFilename, ncells);
+	}
+	else
+	{
+		std::cerr << "No initial center was given" << std::endl;
+		return -1;
+	}
+
 	if (use_atlas)
 	{
-		std::string path = atlas_directory;
-		if (atlas_directory[0] == '.')
-		{
-			path = itksys::SystemTools::GetFilenamePath(argv[0]);
-			path = path + "/" + atlas_directory;
-		}
-		std::string atlasFilename;
-		atlasFilename = path + "/atlasCenters.vtp";
-		atlasCenters = ReadVTKfile(atlasFilename);
-
 		//Read FA map of the atlas
-		atlasFilename = path +"/atlasFAMap.nhdr";
 		typedef itk::ImageFileReader< ImageType > ReaderType;
 		ReaderType::Pointer reader = ReaderType::New();
-		std::cout << "Reading " << atlasFilename << " ..." <<std::endl;
-		reader->SetFileName(atlasFilename);
+		std::cout << "Reading " << atlasFAFilename.c_str() << " ..." <<std::endl;
+		reader->SetFileName(atlasFAFilename.c_str());
 		reader->Update();
 		ImageType::Pointer atlasFAVolume = reader->GetOutput();
 		//Read FA map of the case
@@ -77,62 +71,46 @@ int main(int argc, char* argv[])
 		std::cout << "Reading " << subjectFAFilename.c_str() << " ..." <<std::endl;
 		reader2->Update();
 		ImageType::Pointer caseFAVolume = reader2->GetOutput();
-		//Read which bundles are selected to be clustered:           /// needs to be standardized
-		std::vector<unsigned long int> atlasCellIDs;
-		if (genu)
-		{atlasCellIDs.push_back(0);}//{atlasCellIDs.push_back(2);}
-		if (splenium)
-		{atlasCellIDs.push_back(1);}//{atlasCellIDs.push_back(0);}
-		if (cingulumR)
-		{atlasCellIDs.push_back(3);}
-		if (cingulumL)
-		{atlasCellIDs.push_back(4);}
 
-		if (atlasCellIDs.size()>0)
+		if (Centers.size()>0)
 		{
 			//Do affine registration
 			TransformType::Pointer transform;
-			std::cout << "Registering the atlas' FA volume to subject's ..." << std::endl;
+			std::cout << "Registering the atlas' scalar volume to subject's ..." << std::endl;
 			transform = doAffineRegistration(caseFAVolume, atlasFAVolume, OutputDirectory);
 			//Select and transfer the centers
-			Centers = applyTransform(atlasCenters, transform, atlasCellIDs );
+			Centers = applyTransform(Centers, transform);
 			CopyFieldType copyField = {0,0,0,0};
-			WriteVTKfile(Centers,transformedCentersFilename.c_str(),copyField);
+			if (!transformedCentersFilename.empty())
+			{
+				WriteVTKfile(Centers, transformedCentersFilename,copyField);
+			}
 		}
-		else
-		{
-			std::cerr << "User should select at least one of the bundles in the atlas' list to be clustered! " << std::endl;
-			return -1;
-		}
-	}
-	else if (!centersFilename.empty())
-	{
-		Centers = ReadVTKfile(centersFilename.c_str());
-	}
-	else
-	{
-		std::cerr << "No initial center was given" << std::endl;
-		return -1;
 	}
 
 	//////////////////////////////////////////////////////
 	// Continue if you have valid trajectories and centers:
 	//////////////////////////////////////////////////////
-	if (Centers->GetNumberOfCells()>0 && Trajectories->GetNumberOfCells()>0)
+	unsigned int numberOfTrajectories = Trajectories->GetNumberOfCells();
+	unsigned int numberOfCenters = Centers.size();
+
+	if (numberOfTrajectories>0 && numberOfCenters>0)
 	{
+		AddOrientation(Trajectories);
+
 		VariableType tractographyStepSize  = getSampleSpacing(Trajectories);
 		std::cout << "Calculated tractography step size is " << tractographyStepSize << std::endl;
 
 		// set the space to the limits of input trajectories
-	    VariableType spaceResolution = 4; //mm  initial value for the first iteration -- space resolution >= tractographyStepSize
+
+		VariableType spaceResolution = 3; //mm  initial value for the first iteration -- space resolution >= tractographyStepSize
 	    std::cout << "Setting the initial space resolution to " << spaceResolution << std::endl;
-	    samplesDistance = 5; //mm  initial value for the first iteration
+	    samplesDistance = 3.5; //mm  initial value for the first iteration
 	    // Resample initial centers:
 	    bool justResample =1;
-	    Centers = SmoothMesh(Centers, samplesDistance, justResample);
+	    Centers = SmoothMeshes(Centers, samplesDistance, justResample);
 
-
-		VariableType MinPost = (VariableType) 1/(Centers->GetNumberOfCells());
+		VariableType MinPost = (VariableType) 1/numberOfCenters;
 		// If the number of clusters is 1:
 		if (MinPost>0.5) { MinPost = 0.5;}
 
@@ -143,20 +121,14 @@ int main(int argc, char* argv[])
 		ArrayType alpha, beta, MyMinLikelihoodThr,dd;
 		Array2DType DissimilarityMatrix, Likelihood, Prior, Posterior; //NxK
 
-		alpha.SetSize(Centers->GetNumberOfCells()); alpha.fill(1);
-		beta.SetSize(Centers->GetNumberOfCells()); beta.fill(10);
-		Prior.SetSize(Trajectories->GetNumberOfCells(),Centers->GetNumberOfCells());
+		alpha.SetSize(numberOfCenters); alpha.fill(1);
+		beta.SetSize(numberOfCenters); beta.fill(10);
+		Prior.SetSize(numberOfTrajectories,numberOfCenters);
 		bool havePrior = 0;
-		if (havePrior)
-		{
-			setPriorInfo(Prior, Trajectories);
-		}
-		else //in absence of an atlas
-		{
-			VariableType initp = 1.0 / (Centers->GetNumberOfCells());
-			Prior.fill(initp);
-		}
+		VariableType initp = ((VariableType) 1.0) /numberOfCenters;
+		Prior.fill(initp);
 
+		bool considerOrientation =1;
 		for (int i=0; i<maxNumberOfIterations; ++i)
 		{
 		  std::cout<< "Iteration  " << i+1 << std::endl;
@@ -165,7 +137,9 @@ int main(int argc, char* argv[])
 
 		  subSpace = getSubSpace(Trajectories, spaceResolution);
 
-		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, samplesDistance, tractographyStepSize, MaxDist);
+		  AddOrientation(Centers);
+
+		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, considerOrientation);
 
 		  //EM Block Begins
 		  Likelihood = ComputeLikelihood(DissimilarityMatrix, alpha, beta);
@@ -209,57 +183,59 @@ int main(int argc, char* argv[])
 		  }
 
 		  //Update centers:
-		  MeshType::Pointer NewCenters = UpdateCenters(RefinedTrajectories, Centers, Posterior, MinPost);
+		  CenterType NewCenters = UpdateCenters(RefinedTrajectories, Centers, Posterior, MinPost);
 
-		  //Smooth centers:
-		  MeshType::Pointer SmoothedCenters = SmoothMesh(NewCenters, samplesDistance, 0);
-
-		  if (debug)
-		  {
-			  std::string tempFilename;
-			  tempFilename = OutputDirectory + "/centers_iteration" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
-			  WriteVTKfile(NewCenters,tempFilename,copyField);
-			  tempFilename = OutputDirectory + "/smoothed_centers_iteration" + currentIteration.str() +".vtp";
-			  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
-			  WriteVTKfile(SmoothedCenters,tempFilename,copyField);
-		  }
-
-		  oldCenters = Centers;
-		  Centers = SmoothedCenters;
-		  Trajectories = RefinedTrajectories;
-		  if (i>1)
-		  {
-			  dd = diffMeshes(oldCenters, Centers);
-			  //std::cout<< "Difference between new centers and old ones is "<< dd.max_value() <<std::endl;
-			  if (dd.max_value()<5) break;
-		  }
 		  spaceResolution = std::max(tractographyStepSize,(VariableType) 1.0);  //1mm space resolution >= tractographyStepSize
 		  std::cout << "Setting the space resolution to " << spaceResolution << std::endl;
 		  samplesDistance = std::max((VariableType) 2.5* spaceResolution,(VariableType) 2.5); //mm
+
+		  //Smooth centers:
+		  CenterType SmoothedCenters = SmoothMeshes(NewCenters, samplesDistance, 0);
+
+		  if(debug)
+		  {
+     	  for (unsigned int cc=0; cc<Centers.size(); cc++)
+		  {
+		    copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
+		    std::string fn = OutputDirectory + "/temp_center.vtp";
+		    WriteVTKfile(SmoothedCenters.at(cc), fn, copyField);
+		  }
+		  }
+
+		  Centers = SmoothedCenters;
+		  Trajectories = RefinedTrajectories;
 		}
 
 	  AssignClusterLabels(Trajectories,Posterior);
-	  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0; copyField.ClusterLabel = 1;
-	  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
-
 	  //Done with clustering.
-	  //////////////////////////////////////////////////////////////////////
-	  //Start Quantitative Analysis:
-	  //////////////////////////////////////////////////////////////////////
-	  if (analysis)
+	  if (!analysis)
 	  {
-		  //Compute and add diffusion scalar measures to each point on the mesh:
+	    copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0; copyField.ClusterLabel = 1;
+	    WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
+	  }
+	  else
+	  {
+	   //Start Quantitative Analysis:
+	   //Compute and add diffusion scalar measures to each point on the mesh:
 		  ComputeScalarMeasures(Trajectories);
 
+		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, 0);
+
+		  //Write the clustering output with scalars
+		  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0; copyField.ClusterLabel = 1;
+		  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
+
+
 		  //Generate separate mesh for each cluster -> cluster + center:
-		  std::vector <MeshType::Pointer> cluster, center, centerWithData;
+		  std::vector <MeshType::Pointer> cluster;
 		  std::vector<unsigned long int> cellId;
 		  std::vector <Array3DType> clusterFeatures;
 
+		  std::vector<std::string> clusternames = generateFilenames(centersFilename,ncells);
+
 		  Array3DType posts;
 
-		  for (unsigned int k=0; k<Centers->GetNumberOfCells(); ++k)
+		  for (unsigned int k=0; k<Centers.size(); ++k)
 		  {
 			  std::stringstream currentClusterId;
 			  currentClusterId<<k+1;
@@ -267,26 +243,25 @@ int main(int argc, char* argv[])
 			  //Separate cluster k'th
 			  cluster.push_back(getCluster(Trajectories,k));
 
-			  //Separate center  k'th
-			  cellId.clear(); cellId.push_back(k);
-			  center.push_back(getTrajectories(oldCenters,cellId));
-
 			  //Separate posterior probabilities
 			  posts.push_back(getClusterPosterior(Posterior,Trajectories,k));
 
 			  //Compute the feature matrices
-			  clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],center[k],k));
+			  clusterFeatures.push_back(BuildFeatureMatrix(cluster[k],Centers.at(k),k));
 			  if (clusterFeatures[k].at(0).rows()>0) //not empty
 			  {
 				  //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
 				  ArrayType meanFA; //, stdFA;
-				  meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TO Do: compute the weighted average
+				  meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TODo: compute the weighted average
 				  //Add point data to the cell with the cell ID of cellId in the oldCenters mesh to get visualized with the
 				  // mean FA after loading in Slicer:
-				  AddPointScalarToACell(oldCenters,k, meanFA );//oldCenters gets updated.
+				  AddPointScalarToACell(Centers.at(k),0,meanFA );//Centers gets updated.
 			  }
-
-			  centerWithData.push_back(getTrajectories(oldCenters,cellId));
+			  if (!outputCentersFilename.empty())
+			  {
+				  copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences = 0; copyField.CaseName=0;
+				  WriteVTKfile(Centers, outputCentersFilename ,copyField);
+			  }
 
 			  //write out the posterior for each cluster
 			  std::string filename;
@@ -308,11 +283,11 @@ int main(int argc, char* argv[])
 				  WriteCSVfile(filename,clusterFeatures[k].at(3));
 
 				  // Write individual files for each cluster and its center.
-				  filename = OutputDirectory+"/center" + currentClusterId.str()+".vtp";
+				  filename = OutputDirectory+ "/"+ clusternames.at(k) + "_center" + currentClusterId.str()+".vtp";
 				  copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences = 0; copyField.CaseName=0;
-				  WriteVTKfile(centerWithData[k],filename,copyField);
+				  WriteVTKfile(Centers.at(k),filename,copyField);
 
-				  filename = OutputDirectory+"/cluster" + currentClusterId.str()+".vtp";
+				  filename = OutputDirectory+"/"+ clusternames.at(k) + "_cluster" + currentClusterId.str()+".vtp";
 				  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
 				  WriteVTKfile(cluster[k], filename,copyField);
 			  }
@@ -346,23 +321,15 @@ int main(int argc, char* argv[])
 					  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
 					  WriteVTKfile(subClusters[sn], outputfilename.c_str() ,copyField);
 				  }
-			  }
-		  }
-		  copyField.FA = 1;
-	  }
-	  else
-	  {
-	  copyField.FA = 0;
-	  }
-	  //write centers with new point data from the quantitative analysis part.
-	  copyField.Tensor = 0; copyField.Correspondences = 0;copyField.CaseName=0;
-	  WriteVTKfile(oldCenters, outputCentersFilename.c_str(),copyField);
-
+			  }//done if population
+			  }//done for each cluster
+		  }//done if analysis
 	  std::cout << "Done." << std::endl;
 	  return EXIT_SUCCESS;
 	}
-	else
+	else //zero number of trajectories or centers
 	{
+		std::cout << "Completed with Error." << std::endl;
 		return EXIT_FAILURE;
 	}
 }

@@ -6,6 +6,8 @@
 #include "itksys/Glob.hxx"
 #include "itkMesh.h"
 #include "itkLineCell.h"
+#include "itkPolygonCell.h"
+#include "itkTriangleCell.h"
 #include "itkPolylineCell.h"
 #include "itkDefaultStaticMeshTraits.h"
 #include <itkArray2D.h>
@@ -13,12 +15,13 @@
 #include "itkOrientedImage.h"
 #include "itkImage.h"
 
+#include "QuadEdge/itkQuadEdge.h"
 #include "itkQuadEdgeMesh.h"
 #include "itkQuadEdgeMeshTraits.h"
 #include "itkQuadEdgeMeshPolygonCell.h"
 
 const unsigned int PointDimension = 3;
-const unsigned int MaxTopologicalDimension = 1;
+const unsigned int MaxTopologicalDimension = 2;      // changed from 1 to be able to include surfaces as well
 typedef double     CoordinateType;
 typedef float      VariableType;
 typedef itk::Vector<CoordinateType, PointDimension> VectorType;
@@ -32,10 +35,12 @@ itk::FixedArray<double, PointDimension >   EigenValues;
 itk::FixedArray<double, 9 >                Tensor;
 itk::Point<CoordinateType, PointDimension> AtlasPosition;
 itk::Array<long int>                       Correspondence;
+VectorType   							   Orientation;
 }PixelType;
 
 typedef struct{
 itk::FixedArray<double, PointDimension >   Orientation;
+double                                     FA;
 }QEPixelType;
 
 
@@ -55,6 +60,7 @@ bool                  Tensor;
 bool                  ClusterLabel;
 bool                  CaseName;
 bool                  Correspondences;
+bool                  Orientation;
 }CopyFieldType;
 
 
@@ -75,6 +81,11 @@ QEPixelType, PointDimension, QEPixelType, QECellDataType,
 CoordinateType, InterpolationWeightType >     QuadEdgeMeshTraits;
 
 typedef itk::QuadEdgeMesh< QEPixelType, PointDimension, QuadEdgeMeshTraits>  QuadEdgeMeshType;
-typedef std::vector<QuadEdgeMeshType::Pointer>              CenterType;
-
+typedef QuadEdgeMeshType::CellType                          QECellType;
+typedef itk::PolygonCell< QECellType >                      PolygonType;
+typedef itk::TriangleCell<QECellType>      					TriangleCellType;
+//typedef QECellType::CellAutoPointer                       QECellAutoPointer;
+typedef QuadEdgeMeshType::CellAutoPointer                   QECellAutoPointer;
+typedef std::vector<QuadEdgeMeshType::Pointer>              SurfaceCenterType;
+typedef std::vector<MeshType::Pointer>              CenterType;
 #endif // #ifndef

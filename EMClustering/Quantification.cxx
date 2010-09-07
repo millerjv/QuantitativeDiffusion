@@ -43,11 +43,11 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
   fMatrix3.set_size(numberOfTrajectories,numberOfSamples);
   fMatrix4.set_size(numberOfTrajectories,numberOfSamples);
 
-  MeshType::PointType point;
+  //MeshType::PointType point;
   int MyLabel, currentLabel=0;
   for (unsigned int s=0; s<numberOfSamples; ++s)
   {
-    center->GetPoint(s, &point);
+    //center->GetPoint(s, &point);
     MyLabel = ++currentLabel;
     //go over trajectories
     for (unsigned long int t=0; t<numberOfTrajectories; ++t)
@@ -55,7 +55,7 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
     	CellAutoPointer atrajectory;
     	cluster->GetCell(t,atrajectory);
     	PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
-    	MeshType::PointType tpoint;
+    	//MeshType::PointType tpoint;
     	MeshType::PixelType tpointvalue;
 
    		double sumFeature1 = 0;
@@ -65,7 +65,7 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
    		int n=0;
    		for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
    		{
-   			cluster->GetPoint(*pit, &tpoint);
+   			//cluster->GetPoint(*pit, &tpoint);
    			cluster->GetPointData( *pit, &tpointvalue );
    			if (tpointvalue.Correspondence(clusterId)==MyLabel)
    			{
@@ -99,5 +99,51 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
   allFeatures.push_back(fMatrix3);
   allFeatures.push_back(fMatrix4);
 
+  return allFeatures;
+}
+
+Array3DType BuildFeatureMatrix(const MeshType* cluster, const QuadEdgeMeshType* center, int clusterId)
+{
+  Array2DType fMatrix1,fMatrix2,fMatrix3,fMatrix4;  // NxS (Number of Trajectories x Number of Samples on the Center)
+  VariableType nanVal = -1;
+  unsigned long int numberOfTrajectories = cluster->GetNumberOfCells();
+  unsigned int numberOfSamples = center->GetNumberOfPoints();
+  fMatrix1.set_size(numberOfTrajectories,numberOfSamples);
+  fMatrix2.set_size(numberOfTrajectories,numberOfSamples);
+  fMatrix3.set_size(numberOfTrajectories,numberOfSamples);
+  fMatrix4.set_size(numberOfTrajectories,numberOfSamples);
+
+  fMatrix1.Fill(nanVal);
+  fMatrix2.Fill(nanVal);
+  fMatrix3.Fill(nanVal);
+  fMatrix4.Fill(nanVal);
+   //go over trajectories
+  for (unsigned long int t=0; t<numberOfTrajectories; ++t)
+  {
+    	CellAutoPointer atrajectory;
+    	cluster->GetCell(t,atrajectory);
+    	PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+    	MeshType::PointType tpoint;
+    	MeshType::PixelType tpointvalue;
+
+   		for (unsigned int j=0; j <atrajectory->GetNumberOfPoints(); ++j)
+   		{
+   			cluster->GetPointData( *pit, &tpointvalue );
+   			if (tpointvalue.Correspondence(clusterId)>0) //invalid correspondences are negative
+   			{
+   				fMatrix1[t][tpointvalue.Correspondence(clusterId)-1] = tpointvalue.FA;
+   				fMatrix2[t][tpointvalue.Correspondence(clusterId)-1] = (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
+   		    	fMatrix3[t][tpointvalue.Correspondence(clusterId)-1] = (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
+    		    fMatrix4[t][tpointvalue.Correspondence(clusterId)-1] = tpointvalue.EigenValues[2];
+   			}
+   		    pit++;
+   		}
+
+  } //end for
+  Array3DType allFeatures;
+  allFeatures.push_back(fMatrix1);
+  allFeatures.push_back(fMatrix2);
+  allFeatures.push_back(fMatrix3);
+  allFeatures.push_back(fMatrix4);
   return allFeatures;
 }

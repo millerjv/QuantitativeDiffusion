@@ -252,10 +252,12 @@ TransformType::Pointer doAffineRegistration(ImageType* caseFAVolume, ImageType* 
 
    writer2->SetInput( intensityRescaler->GetOutput() );
    resampler->SetDefaultPixelValue( 1 );
+   /*
    filename = OutputDirectory + "/differenceVolume.nhdr";
    std::cout << "Writing the difference volume ..." << std::endl;
    writer2->SetFileName( filename );
    writer2->Update();
+   */
 
    //finalTransform->Print(std::cout);
   return finalTransform;
@@ -298,9 +300,22 @@ MeshType::Pointer applyTransform(MeshType* atlasCenters, TransformType* transfor
 		}
 		transformedCenters->SetCell(c, MyCell);
 		transformedCenters->SetCellData(c, cellvalue);
-
 	}
 
 	return transformedCenters;
 }
 
+CenterType applyTransform(CenterType meshes, TransformType* transform)
+{
+
+	CenterType transformed_meshes;
+	std::vector<unsigned long int> CellIDs;
+	CellIDs.push_back(0);
+	for (unsigned int k=0; k<meshes.size(); k++)
+	{
+		MeshType::Pointer t = applyTransform(meshes.at(k), transform, CellIDs);
+		transformed_meshes.push_back(t);
+	}
+
+	return transformed_meshes;
+}

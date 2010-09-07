@@ -6,5 +6,6 @@
 
 void ComputeScalarMeasures(MeshType*);
 Array3DType BuildFeatureMatrix(const MeshType*, const MeshType*, int);
+Array3DType BuildFeatureMatrix(const MeshType*, const QuadEdgeMeshType*, int);
 
 #endif // #ifndef
