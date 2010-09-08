@@ -74,7 +74,7 @@
 </parameters>   
 
 <parameters>
-    <label>IO - Multipe Subject Study </label>
+    <label>IO - Multiple Subject Study </label>
     <description>Parameters specifying data input and output for a population study </description>
     
     <boolean>
@@ -89,7 +89,7 @@
       <longflag>population_directory</longflag>
       <label>Population Directory</label>
       <description>Directory which includes a collection of vtk/vtp files of tracts to be studied </description>
-      <default>/fs/corpus1/asset24_cluster_pilot/tracts/ped-icap_l</default>
+      <default>/fs/corpus1/</default>
     </directory>
 </parameters>
 <parameters>
