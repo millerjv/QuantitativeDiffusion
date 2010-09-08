@@ -9,7 +9,7 @@ function subjects = processCSVfiles(params)
 %  params.NAval               the integer value by which the missing data
 %                             is represented (default -1)
 %  params.sm                  smoothing factor which is applied to the
-%                             plotted curves (default 5)
+%                             plotted curves (default 1 - no smoothing)
 
 % Mahnaz Maddah, 2009.
 
@@ -153,8 +153,8 @@ for d=1:4
     subplot(2,2,d)
     plot(smooth(data_mean,sm),'.','MarkerFaceColor',col, 'MarkerEdgeColor',col);%'LineWidth',2);
     hold on
-   % plot(smooth(data_mean+data_std,sm),'--b','LineWidth',2);
-   % plot(smooth(data_mean-data_std,sm),'--b','LineWidth',2);
+    %plot(smooth(data_mean+data_std,sm),'--b','LineWidth',2);
+    %plot(smooth(data_mean-data_std,sm),'--b','LineWidth',2);
     set(gca,'XTick',0:N/2:N)
     set(gca,'XTickLabel',{'0', '0.5','1'});
     ylabel(features(d))
