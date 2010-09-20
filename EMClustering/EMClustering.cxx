@@ -4,7 +4,7 @@
 //// SLICER VERSION
 #include "Common.h"
 #include "EMClusteringIO.h"
-#include "Registration.h"
+#include "AffineRegistration.h"
 #include "myMaths.h"
 #include "EMCore.h"
 #include "MeshOperations.h"
@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
 			//Do affine registration
 			TransformType::Pointer transform;
 			std::cout << "Registering the atlas' scalar volume to subject's ..." << std::endl;
-			transform = doAffineRegistration(caseFAVolume, atlasFAVolume, OutputDirectory);
+			transform = doSlicerFastAffineRegistration(caseFAVolume, atlasFAVolume, OutputDirectory);
 			//Select and transfer the centers
 			Centers = applyTransform(Centers, transform);
 			CopyFieldType copyField = {0,0,0,0};
@@ -252,6 +252,7 @@ int main(int argc, char* argv[])
 			  {
 				  //Now compute the mean FA and assign it to the pointvalue.FA of each point on the center
 				  ArrayType meanFA; //, stdFA;
+				  std::vector<unsigned int> nids;
 				  meanFA = meanMat(clusterFeatures[k].at(0),-1);                          //TODo: compute the weighted average
 				  //Add point data to the cell with the cell ID of cellId in the oldCenters mesh to get visualized with the
 				  // mean FA after loading in Slicer:
