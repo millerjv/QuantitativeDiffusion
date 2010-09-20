@@ -539,8 +539,96 @@ void  AddPointScalarToACell(MeshType* mesh, MeshType::CellIdentifier CellID, Arr
 
 }
 
+MeshType::PointType mean_w(std::vector<MeshType::PointType> p, std::vector<VariableType> w)
+{
+	MeshType::PointType mp, sp;
+	sp.Fill(0);
+	VariableType sw=0;
+	for (unsigned int n=0; n<p.size(); n++)
+	{
+		//std::cout << p.at(n)[0] << p.at(n)[1] << p.at(n)[2] <<std::endl;;
+		sp[0] = w.at(n)*p.at(n)[0] + sp[0];
+		sp[1] = w.at(n)*p.at(n)[1] + sp[1];
+		sp[2] = w.at(n)*p.at(n)[2] + sp[2];
+		sw+=w.at(n);
+	}
+	//mp = sp/p.size();
+    mp[0] = sp[0]/sw;
+    mp[1] = sp[1]/sw;
+    mp[2] = sp[2]/sw;
+    //std::cout << mp[0] << mp[1] << mp[2] <<std::endl;;
+    return mp;
+}
 
-CenterType UpdateCenters(MeshType* mesh, CenterType centers, const Array2DType &Posterior, VariableType MinPosterior)
+/*
+void UpdateCenters(const MeshType* mesh, CenterType mesh_centers, const Array2DType &Posterior, VariableType MinPosterior)
+{
+
+	unsigned int NumberOfClusters=mesh_centers.size();
+	ArrayType post;
+	for (unsigned int k=0; k<NumberOfClusters; ++k)
+	{
+		post = Posterior.get_column(k);
+		std::vector<long int> sigIDs;
+		for (unsigned long int p=0; p<post.Size(); ++p)
+		{
+			if (post(p)>MinPosterior)
+			{
+				sigIDs.push_back(p);
+			}
+		}
+
+		if(sigIDs.size()<1)
+		{
+			std::cout<< "Center " << k+1 << " is not being updated" <<std::endl;
+		}
+		else
+		{
+			itk::FixedArray<std::vector<MeshType::PointType>, 1000> points;
+			itk::FixedArray<std::vector<VariableType>, 1000> probs;
+			MeshType::PixelType tpointvalue;
+			MeshType::PointType tpoint;
+
+
+			for (unsigned long int t=0; t<sigIDs.size(); ++t)
+			{
+				CellAutoPointer atrajectory;
+				mesh->GetCell(sigIDs.at(t),atrajectory);
+				PolylineType::PointIdIterator pit = atrajectory->PointIdsBegin();
+				for (unsigned int j=0; j < atrajectory->GetNumberOfPoints(); ++j)
+				{
+					mesh->GetPoint(*pit, &tpoint);
+					mesh->GetPointData( *pit, &tpointvalue );
+					points[tpointvalue.Correspondence(k)-1].push_back(tpoint);
+					probs[tpointvalue.Correspondence(k)-1].push_back(post(sigIDs.at(t)));
+					pit++;
+				}//for j
+			}//for t
+
+			for (unsigned int c=0; c<mesh_centers.at(k)->GetNumberOfPoints(); ++c) //for over center points
+			{
+				//Updating point on the surface
+				MeshType::PointType point, mean_point;
+				if (points[c].size()>0)
+				{
+					mesh_centers.at(k)->GetPoint(c, &point);
+					mean_point = mean_w(points[c], probs[c]);
+					mesh_centers.at(k)->SetPoint(c,mean_point);
+				}
+				else
+				{
+					std::cout << "point " << c << " not being updated" <<std::endl;
+				}
+
+			}//end for c -- point on the center
+		}
+	}//end for k (cluster)
+}
+*/
+
+
+
+CenterType UpdateCenters(const MeshType* mesh, CenterType centers, const Array2DType &Posterior, VariableType MinPosterior)
 {
 	//TODO: See if there is a more efficient/faster way to do this
   CenterType newcenters;
@@ -667,6 +755,7 @@ CenterType UpdateCenters(MeshType* mesh, CenterType centers, const Array2DType &
   }//end for k (cluster)
   return newcenters;
 }
+
 
 void AddOrientation(MeshType* mesh)
 {
