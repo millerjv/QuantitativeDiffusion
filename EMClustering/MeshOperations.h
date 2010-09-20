@@ -9,7 +9,7 @@
 #include <itkLinearInterpolateImageFunction.h>
 
 Array2DType ComputeDissimilarity(MeshType*, CenterType, ImageType*, VariableType, bool);
-CenterType UpdateCenters(MeshType*, CenterType, const Array2DType &, VariableType);
+CenterType UpdateCenters(const MeshType*, CenterType, const Array2DType &, VariableType);
 MeshType::Pointer RefineData(const MeshType*, Array2DType &, Array2DType &, Array2DType &, ArrayType, bool);
 MeshType::Pointer SmoothMesh(MeshType*, VariableType, bool);
 CenterType SmoothMeshes(CenterType, VariableType, bool);
