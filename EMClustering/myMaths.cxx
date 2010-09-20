@@ -1,10 +1,10 @@
 
 #include <myMaths.h>
 
-ArrayType meanMat(const Array2DType &X, int nanVal=0)
+ArrayType meanMat(const Array2DType &X, int nanVal)
 //take the column-wise mean of the matrix X, ignoring the zero elements.
 {
-  std::vector<int> nanValCols;
+  std::vector<unsigned int> nanValCols;
   ArrayType mX;
   mX.SetSize(X.cols());
   ArrayType aCol;
@@ -37,7 +37,7 @@ ArrayType meanMat(const Array2DType &X, int nanVal=0)
       else
       {
         //
-        mX(c)=0;
+        mX(c)= nanVal;
         nanValCols.push_back(c);
       }
      }
@@ -96,7 +96,7 @@ ArrayType stdMat(const Array2DType &X, int nanVal=0)
       else
       {
         //
-        mX(c)=0;
+        mX(c)=nanVal;
         nanValCols.push_back(c);
         }
       }
@@ -143,7 +143,7 @@ ArrayType meanMat(Array2DType X, Array2DType P, int nanVal=0)
       }
       else
       {
-        mX(c)=0;
+        mX(c)=nanVal;
         nanValCols.push_back(c);
       }
     }
