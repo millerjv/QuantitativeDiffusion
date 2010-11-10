@@ -1,7 +1,7 @@
 #if defined(_MSC_VER)
 #pragma warning ( disable : 4786 )
 #endif
-//// SLICER VERSION
+
 #include "Common.h"
 #include "EMClusteringIO.h"
 #include "AffineRegistration.h"
@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 
 	if (!centersFilename.empty())
     {
-	   Centers = readCenterFiles(centersFilename, ncells);
+	   Centers = readCenterFiles(centersFilename, ncells);  //ToDO: what is ncells used for?
 	}
 	else
 	{
@@ -127,6 +127,7 @@ int main(int argc, char* argv[])
 		bool havePrior = 0;
 		VariableType initp = ((VariableType) 1.0) /numberOfCenters;
 		Prior.fill(initp);
+		VariableType cosAngleThreshold = 0.5;
 
 		bool considerOrientation =1;
 		for (int i=0; i<maxNumberOfIterations; ++i)
@@ -139,7 +140,10 @@ int main(int argc, char* argv[])
 
 		  AddOrientation(Centers);
 
-		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, considerOrientation);
+		  cosAngleThreshold+= i*0.1;  //make it a tighter constraint every iteration
+		  cosAngleThreshold = std::min(cosAngleThreshold, (VariableType) 0.8);
+
+		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, cosAngleThreshold, considerOrientation);
 
 		  //EM Block Begins
 		  Likelihood = ComputeLikelihood(DissimilarityMatrix, alpha, beta);
@@ -194,12 +198,12 @@ int main(int argc, char* argv[])
 
 		  if(debug)
 		  {
-     	  for (unsigned int cc=0; cc<Centers.size(); cc++)
-		  {
-		    copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
-		    std::string fn = OutputDirectory + "/temp_center.vtp";
-		    WriteVTKfile(SmoothedCenters.at(cc), fn, copyField);
-		  }
+			  for (unsigned int cc=0; cc<Centers.size(); cc++)
+			  {
+				  copyField.FA = 0; copyField.Tensor = 0; copyField.Correspondences =0; copyField.CaseName=0;
+				  std::string fn = OutputDirectory + "/temp_center.vtp";
+				  WriteVTKfile(SmoothedCenters.at(cc), fn, copyField);
+			  }
 		  }
 
 		  Centers = SmoothedCenters;
@@ -219,10 +223,13 @@ int main(int argc, char* argv[])
 	   //Compute and add diffusion scalar measures to each point on the mesh:
 		  ComputeScalarMeasures(Trajectories);
 
-		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, 0);
+	      AddOrientation(Centers);
+	      cosAngleThreshold = 0.9;
+
+		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, cosAngleThreshold, 1);
 
 		  //Write the clustering output with scalars
-		  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences =1; copyField.CaseName=0; copyField.ClusterLabel = 1;
+		  copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences =1; copyField.CaseName=0; copyField.ClusterLabel = 1;
 		  WriteVTKfile(Trajectories, outputClustersFilename.c_str(),copyField);
 
 
@@ -277,10 +284,10 @@ int main(int argc, char* argv[])
 				  filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_MD.csv";
 				  WriteCSVfile(filename,clusterFeatures[k].at(1));
 
-				  filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_PerDiff.csv";
+				  filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_ParDiff.csv";
 				  WriteCSVfile(filename,clusterFeatures[k].at(2));
 
-				  filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_ParDiff.csv";
+				  filename = OutputDirectory + "/cluster"+ currentClusterId.str()+"_PerDiff.csv";
 				  WriteCSVfile(filename,clusterFeatures[k].at(3));
 
 				  // Write individual files for each cluster and its center.
@@ -289,7 +296,7 @@ int main(int argc, char* argv[])
 				  WriteVTKfile(Centers.at(k),filename,copyField);
 
 				  filename = OutputDirectory+"/"+ clusternames.at(k) + "_cluster" + currentClusterId.str()+".vtp";
-				  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
+				  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
 				  WriteVTKfile(cluster[k], filename,copyField);
 			  }
 
@@ -310,6 +317,8 @@ int main(int argc, char* argv[])
 					  myfile << std::endl;
 				  }
 				  myfile.close();
+			      std::vector<Array3DType> clusterSubjectFeatures;
+			      MeshType::Pointer subjectCenter = Centers.at(k);
 
 				  for (unsigned int sn=0; sn<allfilenames.size(); sn++)
 				  {
@@ -319,8 +328,26 @@ int main(int argc, char* argv[])
 
 					  //Generate separate meshes for each subject in the population
 					  subClusters.push_back(getCluster(cluster[k], allfilenames.at(sn)));
-					  copyField.FA = 1; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
+					  copyField.FA = 0; copyField.Tensor = 1; copyField.Correspondences = 1; copyField.CaseName=0;
 					  WriteVTKfile(subClusters[sn], outputfilename.c_str() ,copyField);
+	       			  clusterSubjectFeatures.push_back(BuildFeatureMatrix(subClusters[sn],Centers.at(k),k));
+
+	       			  Array2DType clusterSubjectFeatureMeans;
+	       			  clusterSubjectFeatureMeans.set_size(4,subjectCenter->GetNumberOfPoints());
+	       			  ArrayType meanFA = meanMat(clusterSubjectFeatures[sn].at(0),-1);
+	       			  clusterSubjectFeatureMeans.set_row(0,meanMat(clusterSubjectFeatures[sn].at(0),-1));
+	       			  clusterSubjectFeatureMeans.set_row(1,meanMat(clusterSubjectFeatures[sn].at(1),-1));
+	       			  clusterSubjectFeatureMeans.set_row(2,meanMat(clusterSubjectFeatures[sn].at(2),-1));
+	       			  clusterSubjectFeatureMeans.set_row(3,meanMat(clusterSubjectFeatures[sn].at(3),-1));
+
+	    	  		  filename = OutputDirectory+"/cluster" + currentClusterId.str()+ "_" + subjectName +".csv";
+	    	  		  WriteCSVfile(filename,clusterSubjectFeatureMeans);
+
+	    	  		  AddPointScalarToACell(subjectCenter,0, meanFA);//Centers gets updated.
+	    	  		  filename = OutputDirectory+"/center" + currentClusterId.str()+ "_" + subjectName +".vtp";
+	    	  	      copyField.FA = 1; copyField.Tensor = 0; copyField.Correspondences = 0; copyField.CaseName=0;
+	    	  		  WriteVTKfile(subjectCenter,filename,copyField);
+
 				  }
 			  }//done if population
 			  }//done for each cluster

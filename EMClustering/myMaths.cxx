@@ -1,7 +1,7 @@
 
 #include <myMaths.h>
 
-ArrayType meanMat(const Array2DType &X, int nanVal)
+ArrayType meanMat(Array2DType X, int nanVal)
 //take the column-wise mean of the matrix X, ignoring the zero elements.
 {
   std::vector<unsigned int> nanValCols;
@@ -10,44 +10,32 @@ ArrayType meanMat(const Array2DType &X, int nanVal)
   ArrayType aCol;
   for (unsigned int c = 0; c<X.cols(); c++)
   {
-
     aCol = X.get_column(c);
-
-    // if there is no NAN in the column:   (here we assume that the nanVal is 0 or a negative number.
-    if (aCol.min_value() != nanVal)
+    double s = 0;
+    unsigned int n = 0;
+    for (unsigned int i =0; i<aCol.Size(); i++)
     {
-      mX(c) = aCol.mean();
+      if (aCol(i)!= nanVal)
+      {
+        s+=aCol(i);
+          n++;
+      }
     }
+    if (n!=0)
+    {
+    	mX(c) = s/n;
+	}
     else
     {
-      double s = 0;
-      unsigned int n = 0;
-      for (unsigned int i =0; i<aCol.Size(); i++)
-      {
-        if (aCol(i)!= nanVal)
-        {
-          s+=aCol(i);
-          n++;
-        }
-      }
-      if (n!=0)
-      {
-        mX(c) = s/n;
-      }
-      else
-      {
-        //
-        mX(c)= nanVal;
+    	mX(c)= nanVal;
         nanValCols.push_back(c);
-      }
-     }
-
+	}
   }
-  std::cout << "NaN colums: "<< nanValCols.size()<<std::endl;
+  std::cout << "NaN columns: "<< nanValCols.size()<<std::endl;
   return mX;
 }
 
-ArrayType stdMat(const Array2DType &X, int nanVal=0)
+ArrayType stdMat(Array2DType X, int nanVal=0)
 //take the column-wise std of the matrix X, ignoring the nonVal elements.
 {
   std::vector<int> nanValCols;
@@ -56,17 +44,8 @@ ArrayType stdMat(const Array2DType &X, int nanVal=0)
   ArrayType aCol;
   for (unsigned int c = 0; c<X.cols(); c++)
   {
-
-    aCol = X.get_column(c);
-
-    // if there is no NAN in the column:   (here we assume that the nanVal is 0 or a negative number.
-    if (aCol.min_value() != nanVal)
-    {
-		mX(c) = (aCol - aCol.mean()).rms();
-    }
-    else
-    {
-      double s = 0;
+	  aCol = X.get_column(c);
+	  double s = 0;
       unsigned int n = 0;
       for (unsigned int i =0; i<aCol.Size(); i++)
       {
@@ -81,26 +60,21 @@ ArrayType stdMat(const Array2DType &X, int nanVal=0)
          double meanVal =  s/n;
 		 double ms = 0;
 		 for (unsigned int i =0; i<aCol.Size(); i++)
-			{
-			if (aCol(i)!= nanVal)
-			{
+		 {
+			 if (aCol(i)!= nanVal)
+			 {
 				ms+=(aCol(i)-meanVal)*(aCol(i)-meanVal);
 
-			}
-			}
-
-
-		mX(c) = sqrt(ms/n);
+			 }
+		 }
+		 mX(c) = sqrt(ms/n);
 
       }
       else
       {
-        //
         mX(c)=nanVal;
         nanValCols.push_back(c);
-        }
       }
-
   }
   std::cout << "NaN colums: "<< nanValCols.size()<<std::endl;
   return mX;

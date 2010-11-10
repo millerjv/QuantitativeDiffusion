@@ -8,7 +8,7 @@
 #include <itkBoundingBox.h>
 #include <itkLinearInterpolateImageFunction.h>
 
-Array2DType ComputeDissimilarity(MeshType*, CenterType, ImageType*, VariableType, bool);
+Array2DType ComputeDissimilarity(MeshType*, CenterType, ImageType*, VariableType, VariableType, bool);
 CenterType UpdateCenters(const MeshType*, CenterType, const Array2DType &, VariableType);
 MeshType::Pointer RefineData(const MeshType*, Array2DType &, Array2DType &, Array2DType &, ArrayType, bool);
 MeshType::Pointer SmoothMesh(MeshType*, VariableType, bool);

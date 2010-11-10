@@ -1,7 +1,7 @@
 
 #include "MeshOperations.h"
 
-Array2DType ComputeDissimilarity(MeshType* mesh, CenterType mesh_centers, ImageType* space, VariableType maxDistance, bool considerOrientation)
+Array2DType ComputeDissimilarity(MeshType* mesh, CenterType mesh_centers, ImageType* space, VariableType maxDistance, VariableType cosineAngleThreshold, bool considerOrientation)
 {
 	unsigned long int NumberOfTrajectories=mesh->GetNumberOfCells();
 	unsigned int NumberOfClusters=mesh_centers.size();
@@ -117,7 +117,7 @@ Array2DType ComputeDissimilarity(MeshType* mesh, CenterType mesh_centers, ImageT
 							if (considerOrientation)
 							{
 								VariableType cosAngle = (pointvalue.Orientation*orientationOnCenter.at(currentLabel-1));
-							    if (cosAngle>-0.5 && cosAngle<0.5)
+							    if (cosAngle>-cosineAngleThreshold && cosAngle<cosineAngleThreshold)
 							    {
 							    	pointvalue.Correspondence[ClusterIdx] = -120; //Orientation missmatch
 							    	missOrien++;

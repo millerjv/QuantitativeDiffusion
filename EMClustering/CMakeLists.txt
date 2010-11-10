@@ -35,11 +35,11 @@ ENDIF(VTK_FOUND)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
-add_library(ClusteringLib EMClusteringIO.cxx AffineRegistration.cxx myMaths.cxx EMCore.cxx MeshOperations.cxx Quantification.cxx QuadEdge/itkQuadEdge.cxx) # SurfaceOperations.cxx)
+add_library(ClusteringLib EMClusteringIO.cxx AffineRegistration.cxx myMaths.cxx EMCore.cxx MeshOperations.cxx Quantification.cxx) # QuadEdge/itkQuadEdge.cxx SurfaceOperations.cxx)
 #set_target_properties (${CLP}Lib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
 target_link_libraries(ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
 
-set (CLP_LIST EMClustering) # EMClustering2010 EMMedialSheetExtract transform_vtk)
+set (CLP_LIST EMClustering ) #EMClustering2010 EMMedialSheetExtract transform_vtk vtp2vtk)
 
 foreach(CLP ${CLP_LIST})
 set ( ${CLP}_SOURCE ${CLP}.cxx)

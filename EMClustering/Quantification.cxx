@@ -70,9 +70,10 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const MeshType* center, 
    			if (tpointvalue.Correspondence(clusterId)==MyLabel)
    			{
    				sumFeature1 += tpointvalue.FA;
+   				//std::cout << tpointvalue.EigenValues[0] << " " << tpointvalue.EigenValues[1] << " " << tpointvalue.EigenValues[2] << std::endl;
    				sumFeature2 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
-   				sumFeature3 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
-   				sumFeature4 += tpointvalue.EigenValues[2];
+   				sumFeature3 += tpointvalue.EigenValues[2];
+   				sumFeature4 += (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
    				n++;
    			}
    			pit++;
@@ -133,8 +134,8 @@ Array3DType BuildFeatureMatrix(const MeshType* cluster, const QuadEdgeMeshType* 
    			{
    				fMatrix1[t][tpointvalue.Correspondence(clusterId)-1] = tpointvalue.FA;
    				fMatrix2[t][tpointvalue.Correspondence(clusterId)-1] = (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1]+tpointvalue.EigenValues[2])/3;
-   		    	fMatrix3[t][tpointvalue.Correspondence(clusterId)-1] = (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
-    		    fMatrix4[t][tpointvalue.Correspondence(clusterId)-1] = tpointvalue.EigenValues[2];
+   		    	fMatrix3[t][tpointvalue.Correspondence(clusterId)-1] = tpointvalue.EigenValues[2];
+    		    fMatrix4[t][tpointvalue.Correspondence(clusterId)-1] = (tpointvalue.EigenValues[0]+tpointvalue.EigenValues[1])/2;
    			}
    		    pit++;
    		}
