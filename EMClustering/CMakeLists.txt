@@ -73,3 +73,5 @@ foreach(file ${ATLASFILES} )
 endforeach(file)
 
 install(FILES ${ATLASFILES} DESTINATION ${Slicer3_INSTALL_PLUGINS_LIB_DIR}/${PROJECT_NAME}/Atlas)
+
+slicer3_install_plugins(EMClustering)
