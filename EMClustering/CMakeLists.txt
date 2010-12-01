@@ -1,58 +1,60 @@
 PROJECT(Clustering)
 
 set(CMAKE_BUILD_TYPE Debug CACHE STRING "Configuration type being built (needed to run tests).")
-
-cmake_minimum_required(VERSION 2.4)
 enable_testing()
 
-# Slicer3
-find_package(Slicer3 REQUIRED)
-include(${Slicer3_USE_FILE})
+cmake_minimum_required(VERSION 2.4)
+if(COMMAND cmake_policy)
+  cmake_policy(SET CMP0003 NEW)
+endif(COMMAND cmake_policy)
 
+# --------------------------------------------------------------------------
+# Find Slicer3
 
-# Find GenerateCLP.
-FIND_PACKAGE(GenerateCLP REQUIRED)
-IF (GenerateCLP_FOUND)
-  INCLUDE(${GenerateCLP_USE_FILE})
-ENDIF (GenerateCLP_FOUND)
+if(NOT Slicer3_SOURCE_DIR)
+  find_package(Slicer3 REQUIRED)
+  include(${Slicer3_USE_FILE})
+  slicer3_set_default_install_prefix_for_external_projects()
+endif(NOT Slicer3_SOURCE_DIR)
 
+# Include dirs
 
-# Default install prefix
-slicer3_set_default_install_prefix_for_external_projects()
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_CURRENT_BINARY_DIR}
+  ${Slicer3_Libs_INCLUDE_DIRS}
+  ${Slicer3_Base_INCLUDE_DIRS}
+)
 
+set (CLP EMClustering)
 
-# Find ITK.
-FIND_PACKAGE(ITK REQUIRED)
-IF(ITK_FOUND)
-  INCLUDE(${ITK_USE_FILE})
-ENDIF(ITK_FOUND)
+# --------------------------------------------------------------------------
+# Build and install the library
 
-# Find VTK.
-FIND_PACKAGE(VTK)
-IF(VTK_FOUND)
-  INCLUDE(${VTK_USE_FILE})
-ENDIF(VTK_FOUND)
-
-INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-
-add_library(ClusteringLib EMClusteringIO.cxx AffineRegistration.cxx myMaths.cxx EMCore.cxx MeshOperations.cxx Quantification.cxx QuadEdge/itkQuadEdge.cxx) # SurfaceOperations.cxx)
-set_target_properties (ClusteringLib PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
-target_link_libraries(ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
-
-set (CLP_LIST EMClustering ) #EMClustering2010 EMMedialSheetExtract transform_vtk vtp2vtk)
-
-foreach(CLP ${CLP_LIST})
-set ( ${CLP}_SOURCE ${CLP}.cxx)
-GenerateCLP(${CLP}.cxx ${CLP}.xml)
-
-add_executable(${CLP} ${CLP}.cxx)
-target_link_libraries( ${CLP} ClusteringLib ITKCommon ITKIO vtkIO vtkCommon vtkFiltering vtkGraphics vtkRendering ITKAlgorithms)
+set(lib_name ClusteringLib)
+add_library(${lib_name}
+    EMClusteringIO.cxx AffineRegistration.cxx myMaths.cxx EMCore.cxx MeshOperations.cxx Quantification.cxx QuadEdge/itkQuadEdge.cxx)
   
+slicer3_set_modules_output_path(${lib_name})
+target_link_libraries(${lib_name}
+  ${Slicer3_Libs_LIBRARIES}
+  ${Slicer3_Base_LIBRARIES}
+  ${VTK_LIBRARIES}
+  ${ITK_LIBRARIES}
+)
+
+set_target_properties (${lib_name} PROPERTIES COMPILE_FLAGS "-Dmain=ModuleEntryPoint")
+slicer3_set_plugins_output_path(${lib_name})
+slicer3_install_plugins(${lib_name})
+
+GenerateCLP(${CLP}.cxx ${CLP}.xml)
+add_executable(${CLP} ${CLP}.cxx)
+target_link_libraries(${CLP} ${lib_name})
 slicer3_set_plugins_output_path(${CLP})
-endforeach(CLP)
 
-set(Slicer3_EXE ${Slicer3_DIR}/Slicer3)
+slicer3_install_plugins(${CLP})
 
+#-----------testing  
 if (WIN32)
   set( PluginsPath ${Clustering_BINARY_DIR}/lib/Slicer3/Plugins/${CMAKE_BUILD_TYPE}/ )
 else (WIN32)
@@ -64,7 +66,6 @@ ${Clustering_BINARY_DIR}/Testing/Temporary/OutputClusters.vtp
 --trajectories ${Clustering_SOURCE_DIR}/Data/trajectories_test2.vtp --initialCenters ${Clustering_SOURCE_DIR}/Data/initCenters_test2.vtp
 --outdirectory ${Clustering_BINARY_DIR}/Testing/Temporary)
 
-
 # configure the resources for the atlas
 set(ATLAS_PARENT_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 file(GLOB ATLASFILES RELATIVE ${ATLAS_PARENT_DIR} "Atlas/?*.*")
@@ -74,4 +75,5 @@ endforeach(file)
 
 install(FILES ${ATLASFILES} DESTINATION ${Slicer3_INSTALL_PLUGINS_LIB_DIR}/${PROJECT_NAME}/Atlas)
 
-slicer3_install_plugins(EMClustering)
+
+
