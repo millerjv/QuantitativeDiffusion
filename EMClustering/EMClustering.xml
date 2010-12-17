@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <executable>
   <category>Diffusion.Tractography</category>
-  <title>EM Clustering</title>
+  <title>Fiber Clustering and Analysis </title>
   <description>
     This module clusters a set of input trajectories into a number of bundles, generates arc length parameterization by establishing the point correspondences and reports diffusion parameters along the bundles. The module requires specification of seed trajectories(or initial centerlines) as representatives of the desired bundles. If a fiducial list is passed to the algorithm, the closest trajectories are taken as the seed trajectories. To download tutorial slides and data: http://www.nitrc.org/projects/quantitativedti/ If you use this module in your research, please make sure that you reference this article: Mahnaz Maddah, W. Eric L. Grimson, Simon K. Warfield, William M. Wells, "A Unified Framework for Clustering and Quantitative Analysis of White Matter Fiber Tracts", Medical Image Analysis, vol 12, issue 2, pp. 191-202, 2008.
   </description>
@@ -10,7 +10,7 @@
     http://www.slicer.org/slicerWiki/index.php/Modules:EMDTIClustering-Documentation-3.6
   </documentation-url>
   <license></license>
-  <contributor>This module was developed by Mahnaz Maddah with help from Jim Miller, and was supported by NAC.</contributor>
+  <contributor>This module was developed by Mahnaz Maddah with help from Jim Miller, and was supported partly by NAC.</contributor>
 
   <parameters>
     <label>IO - Common </label>
@@ -173,16 +173,16 @@
     </geometry>
     
     <float>
-      <name>samplesDistance</name>
-      <label>Distance between landmarks</label>
-      <default>2.5</default>
+      <name>angleUpperBound</name>
+      <label>Acceptable Angular Difference </label>
+      <default>30</default>
       <constraints>
-        <minimum>0.1</minimum>
-        <maximum>2</maximum>
-        <step>0.1</step>
+        <minimum>10</minimum>
+        <maximum>60</maximum>
+        <step>5</step>
       </constraints>
-      <longflag>samples_distance</longflag>
-      <description>Specifies the distance between the landmarks in (mm) on the centers for quantitative analysis </description>
+      <longflag>max_angle</longflag>
+      <description>Specifies the maximum angle between orientations of closest points for quantitative analysis.</description>
     </float>
     
     <float>
@@ -198,6 +198,14 @@
       <longflag>max_dist</longflag>
       <description>Max distance (in mm) specifies an upper threshold on the distance of points which can contribute to generating new centers</description>
     </float>
+    
+    <boolean>
+      <name>debug</name>
+      <label>Debug mode?</label>
+      <description>Printing out values and writing intermediate outputs if run in the debug mode.</description>
+      <longflag>debug</longflag>
+    </boolean> 
+    
   </parameters>
 </executable>
 
