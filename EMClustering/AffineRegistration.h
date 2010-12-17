@@ -10,22 +10,24 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "itkOrientedImage.h"
-#include "itkOrientImageFilter.h"
+#include <itkOrientedImage.h>
+#include <itkOrientImageFilter.h>
 
-#include "itkMultiResolutionImageRegistrationMethod.h"
-#include "itkRecursiveMultiResolutionPyramidImageFilter.h"
-#include "itkRegularStepGradientDescentOptimizer.h"
-#include "itkImageRegistrationMethod.h"
-#include "itkLinearInterpolateImageFunction.h"
-#include "itkMattesMutualInformationImageToImageMetric.h"
-#include "itkAffineTransform.h"
-#include "itkResampleImageFilter.h"
-#include "itkBinomialBlurImageFilter.h"
-#include "itkCommand.h"
+#include <itkCostFunction.h>
+#include <itkMultiResolutionImageRegistrationMethod.h>
+#include <itkRecursiveMultiResolutionPyramidImageFilter.h>
+#include <itkRegularStepGradientDescentOptimizer.h>
+#include <itkRegularStepGradientDescentBaseOptimizer.h>
+#include <itkImageRegistrationMethod.h>
+#include <itkLinearInterpolateImageFunction.h>
+#include <itkMattesMutualInformationImageToImageMetric.h>
+#include <itkAffineTransform.h>
+#include <itkResampleImageFilter.h>
+#include <itkBinomialBlurImageFilter.h>
+#include <itkCommand.h>
 
-#include "itkImageFileReader.h"
-#include "itkImageFileWriter.h"
+#include <itkImageFileReader.h>
+#include <itkImageFileWriter.h>
 
 
 typedef itk::AffineTransform<CoordinateType>            TransformType;

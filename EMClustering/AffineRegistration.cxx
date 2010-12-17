@@ -1,5 +1,5 @@
 
-#include <AffineRegistration.h>
+#include "AffineRegistration.h"
 
 //  The following section of code implements a Command observer
 //  used to monitor the evolution of the registration process.
@@ -107,7 +107,6 @@ TransformType::Pointer doSlicerFastAffineRegistration(ImageType* fixedImage, Ima
   typedef itk::MattesMutualInformationImageToImageMetric<ImageType, ImageType>    MetricType;
   typedef itk::RegularStepGradientDescentOptimizer OptimizerType;
   typedef itk::LinearInterpolateImageFunction<ImageType, CoordinateType>  InterpolatorType;
-  //typedef itk::ImageRegistrationMethod<ImageType,ImageType>  RegistrationType;
   typedef OptimizerType::ScalesType OptimizerScalesType;
   typedef itk::ResampleImageFilter<ImageType,ImageType> ResampleType;
   typedef itk::LinearInterpolateImageFunction<ImageType, CoordinateType> ResampleInterpolatorType;
@@ -122,8 +121,7 @@ TransformType::Pointer doSlicerFastAffineRegistration(ImageType* fixedImage, Ima
 	MovingImagePyramidType::Pointer movingImagePyramid = MovingImagePyramidType::New();
 
 
-  FixedOrientFilterType::Pointer orientFixed = FixedOrientFilterType::New();//##
-  //itk::PluginFilterWatcher watchOrientFixed(orientFixed,   "Orient Fixed Image",  CLPProcessInformation,  1.0/5.0, 0.0);
+  FixedOrientFilterType::Pointer orientFixed = FixedOrientFilterType::New();
   orientFixed->UseImageDirectionOn();
   orientFixed->SetDesiredCoordinateOrientationToAxial();
 
@@ -131,11 +129,9 @@ TransformType::Pointer doSlicerFastAffineRegistration(ImageType* fixedImage, Ima
 
   orientFixed->Update();
   
-  MovingOrientFilterType::Pointer orientMoving = MovingOrientFilterType::New();//##
-  //itk::PluginFilterWatcher watchOrientMoving(orientMoving,  "Orient Moving Image", CLPProcessInformation,  1.0/5.0, 2.0/5.0);
+  MovingOrientFilterType::Pointer orientMoving = MovingOrientFilterType::New();
   orientMoving->UseImageDirectionOn();
   orientMoving->SetDesiredCoordinateOrientationToAxial();
-  
   orientMoving->SetInput (movingImage);
   
   orientMoving->Update();
@@ -274,7 +270,6 @@ TransformType::Pointer doSlicerFastAffineRegistration(ImageType* fixedImage, Ima
       { 
       std::cerr << err << std::endl;
       std::cerr << err << std::endl;
-      //return EXIT_FAILURE;
       }
   return transform;
 }
