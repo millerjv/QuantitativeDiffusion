@@ -20,7 +20,6 @@ int main(int argc, char* argv[])
 	CenterType           Centers;
 	ImageType::Pointer   subSpace;
 
-	bool debug = 0;
 	CopyFieldType copyField = {0,0,1,1,0,1};
 	unsigned int ncells; //number of cells in each mesh
 
@@ -48,7 +47,8 @@ int main(int argc, char* argv[])
 
 	if (!centersFilename.empty())
     {
-	   Centers = readCenterFiles(centersFilename, ncells);  //ToDO: what is ncells used for?
+	   Centers = readCenterFiles(centersFilename, ncells);  //Read centers passed by either a single vtk file or multiple vtk files.
+	   // Also return ncells which is the number of cells in a given vtk file. This parameter is used for generating filenames for the output.
 	}
 	else
 	{
@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 
 		VariableType spaceResolution = 3; //mm  initial value for the first iteration -- space resolution >= tractographyStepSize
 	    std::cout << "Setting the initial space resolution to " << spaceResolution << std::endl;
-	    samplesDistance = 3.5; //mm  initial value for the first iteration
+	    VariableType samplesDistance = 3.5; //mm  initial value for the first iteration
 	    // Resample initial centers:
 	    bool justResample =1;
 	    Centers = SmoothMeshes(Centers, samplesDistance, justResample);
@@ -127,7 +127,10 @@ int main(int argc, char* argv[])
 		bool havePrior = 0;
 		VariableType initp = ((VariableType) 1.0) /numberOfCenters;
 		Prior.fill(initp);
-		VariableType cosAngleThreshold = 0.5;
+		VariableType cosAngleLowerBound = 0.5;   //fixed
+		VariableType cosAngleThreshold = cosAngleLowerBound;
+		VariableType cosAngleUpperBound = cos(4.0*atan(1.0)*angleUpperBound/180);
+
 
 		bool considerOrientation =1;
 		for (int i=0; i<maxNumberOfIterations; ++i)
@@ -141,7 +144,7 @@ int main(int argc, char* argv[])
 		  AddOrientation(Centers);
 
 		  cosAngleThreshold+= i*0.1;  //make it a tighter constraint every iteration
-		  cosAngleThreshold = std::min(cosAngleThreshold, (VariableType) 0.8);
+		  cosAngleThreshold = std::min(cosAngleThreshold, (VariableType) cosAngleUpperBound);
 
 		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, cosAngleThreshold, considerOrientation);
 
@@ -224,7 +227,7 @@ int main(int argc, char* argv[])
 		  ComputeScalarMeasures(Trajectories);
 
 	      AddOrientation(Centers);
-	      cosAngleThreshold = 0.9;
+	      cosAngleThreshold = cosAngleUpperBound; //user-defined parameter
 
 		  DissimilarityMatrix = ComputeDissimilarity(Trajectories, Centers, subSpace, MaxDist, cosAngleThreshold, 1);
 
@@ -357,7 +360,7 @@ int main(int argc, char* argv[])
 	}
 	else //zero number of trajectories or centers
 	{
-		std::cout << "Completed with Error." << std::endl;
+		std::cout << "Completed with Error - no valid trajectory or initial medial representation of bundle(s) " << std::endl;
 		return EXIT_FAILURE;
 	}
 }
