@@ -1,5 +1,5 @@
 
-#include <myMaths.h>
+#include "myMaths.h"
 
 ArrayType meanMat(Array2DType X, int nanVal)
 //take the column-wise mean of the matrix X, ignoring the zero elements.
