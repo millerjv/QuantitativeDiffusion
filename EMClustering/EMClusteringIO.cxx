@@ -1,5 +1,5 @@
 
-#include <EMClusteringIO.h>
+#include "EMClusteringIO.h"
 
 vtkPolyData* itk2vtkPolydata(MeshType* mesh, CopyFieldType copyField, int isSurface=0)
 {
